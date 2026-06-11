@@ -63,10 +63,10 @@ NFR-6: Deployment — Vercel (Next.js) + Railway (Spring Boot + PostgreSQL). HTT
 
 ### Additional Requirements (từ Architecture)
 
-- AR-1: Starter template `backend/template` là reference cho auth stack (JwtTokenProvider, JwtAuthenticationFilter, LoginAttemptService, TokenManagementService, GlobalExceptionHandler) — Epic 1 Story Backend Init builds from this pattern.
+- AR-1: Starter template `template/` (trong be repo) là reference cho auth stack (JwtTokenProvider, JwtAuthenticationFilter, LoginAttemptService, TokenManagementService, GlobalExceptionHandler) — Epic 1 Story Backend Init builds from this pattern.
 - AR-2: Hexagonal Architecture (core/application layers) — jOOQ `DSLContext` và `Tables.*` chỉ tồn tại trong `application/infrastructure/repository`. Domain layer không biết jOOQ.
 - AR-3: Flyway migrations (`V{n}__desc.sql`). jOOQ codegen chạy sau migrate. `make dev-setup` wrap toàn bộ: `docker compose up postgres` → `flywayMigrate` → `generateJooq` → `bootRun`.
-- AR-4: Docker Compose — PostgreSQL 16-alpine local. `backend/.env.local` gitignored.
+- AR-4: Docker Compose — PostgreSQL 16-alpine local. `.env.local` gitignored (tại root của be repo).
 - AR-5: JWT auth — access token 15 phút + optional refresh token 7 ngày (stored in `refresh_tokens` table). Next.js lưu JWT trong httpOnly cookie `tba_access_token`; Server Components forward `Authorization: Bearer` header đến Spring Boot.
 - AR-6: API versioning — auth endpoints `/api/auth/*` không version; resource endpoints `/api/v1/customer/*` và `/api/v1/admin/*`.
 - AR-7: Project Status State Machine enforcement — Domain layer owns logic; DB CHECK constraint làm guard thứ 2.
