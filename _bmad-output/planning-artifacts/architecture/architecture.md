@@ -461,41 +461,28 @@ src/main/resources/db/migration/
 
 ---
 
-### AD-14: Spring Boot Package Structure
+### AD-14: Spring Boot Module & Package Structure
 
-**Quyết định:** Follow template structure, đổi tên package theo domain của project.
+**Quyết định:** 2 Gradle modules (`core` + `application`). `adapter` và `infrastructure` là **packages bên trong `application` module** — không phải Gradle module riêng.
+
+**Không chọn:** ~~3 modules riêng (core / application / adapter)~~ — over-engineering cho scale MVP này. Boundary giữa use cases và adapters được enforce bằng package convention, đủ cho solo dev.
+
+**`template/` giữ nguyên là folder trong be repo** (không dùng git submodule) — developer và agent đọc trực tiếp làm reference, không cần extra git step.
 
 **Base package:** `com.tba.agentic`
 
-```
-application/src/main/java/com/tba/agentic/
-├── adapter/
-│   ├── controller/
-│   │   ├── auth/           # AuthController
-│   │   ├── customer/       # CustomerProjectController
-│   │   └── admin/          # AdminProjectController, AdminAccountController
-│   ├── filter/             # JwtAuthenticationFilter, TrackingIdFilter
-│   └── transfer/
-│       ├── request/auth/   customer/   admin/
-│       └── response/auth/  customer/   admin/
-├── application/
-│   └── service/
-│       ├── auth/           # CoreLoginService, RateLimitingLoginUseCase, RefreshTokenService
-│       ├── token/          # TokenManagementService
-│       ├── account/        # CreateAccountService (admin-only)
-│       └── project/        # SubmitProjectService, UpdateProjectStatusService,
-│                           # GetProjectService, ListProjectsService
-├── config/                 # JwtProperties, JooqConfiguration, GlobalExceptionHandler
-├── infrastructure/
-│   ├── email/              # ResendEmailAdapter
-│   └── repository/
-│       ├── account/        # DatabaseDslAccountRepository
-│       ├── project/        # DatabaseDslProjectRepository
-│       ├── audit/          # DatabaseDslAuditRepository
-│       ├── token/          # DatabaseDslTokenRepository
-│       └── security/       # DatabaseDslLoginAttemptRepository
-└── security/               # JwtTokenProvider
+**Gradle modules:**
 
+```
+be-repo/
+├── core/        # Gradle module — domain thuần, zero framework dependency
+├── application/ # Gradle module — use cases + adapters + infrastructure
+└── template/    # Reference code (không compile vào production)
+```
+
+**`core` module** — không phụ thuộc Spring, jOOQ, hay bất kỳ framework nào:
+
+```
 core/src/main/java/com/tba/agentic/core/
 ├── domain/
 │   ├── aggregation/
@@ -514,6 +501,40 @@ core/src/main/java/com/tba/agentic/core/
     ├── out/                # Repository interfaces (account/, project/, audit/, token/, email/)
     └── bound/              # Commands & Queries (command/, query/)
 ```
+
+**`application` module** — chứa adapter, service, infrastructure dưới dạng packages:
+
+```
+application/src/main/java/com/tba/agentic/
+├── adapter/                         # Primary adapters (HTTP in)
+│   ├── controller/
+│   │   ├── auth/           # AuthController
+│   │   ├── customer/       # CustomerProjectController
+│   │   └── admin/          # AdminProjectController, AdminAccountController
+│   ├── filter/             # JwtAuthenticationFilter, TrackingIdFilter
+│   └── transfer/
+│       ├── request/auth/   customer/   admin/
+│       └── response/auth/  customer/   admin/
+├── application/                     # Use cases / services
+│   └── service/
+│       ├── auth/           # CoreLoginService, RateLimitingLoginUseCase, RefreshTokenService
+│       ├── token/          # TokenManagementService
+│       ├── account/        # CreateAccountService, RegisterUserService
+│       └── project/        # SubmitProjectService, UpdateProjectStatusService,
+│                           # GetProjectService, ListProjectsService
+├── config/                 # JwtProperties, JooqConfiguration, GlobalExceptionHandler
+├── infrastructure/                  # Secondary adapters (DB, email out) — jOOQ chỉ tồn tại ở đây
+│   ├── email/              # ResendEmailAdapter
+│   └── repository/
+│       ├── account/        # DatabaseDslAccountRepository
+│       ├── project/        # DatabaseDslProjectRepository
+│       ├── audit/          # DatabaseDslAuditRepository
+│       ├── token/          # DatabaseDslTokenRepository
+│       └── security/       # DatabaseDslLoginAttemptRepository
+└── security/               # JwtTokenProvider
+```
+
+**Boundary rule (từ AD-10):** `jOOQ DSLContext` và `Tables.*` chỉ được phép trong `infrastructure/repository/`. Không được import vào `application/service/` hay `adapter/`. Vi phạm này phát hiện qua code review.
 
 ---
 
