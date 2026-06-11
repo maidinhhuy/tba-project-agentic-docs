@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TBA-agentic — Tạo dự án mới</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Top Nav -->
+<nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-8">
+    <span class="font-semibold text-teal-600 text-lg">TBA-agentic</span>
+    <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Dự án của tôi</a>
+    <a href="#" class="text-sm font-medium text-gray-900 border-b-2 border-teal-600 pb-0.5">Tạo dự án</a>
+  </div>
+  <div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold text-sm">M</div>
+</nav>
+
+<main class="max-w-2xl mx-auto px-6 py-10">
+
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl font-semibold text-gray-900">Tạo dự án mới</h1>
+    <p class="text-sm text-gray-500 mt-1">Mô tả ý tưởng của bạn — chúng tôi sẽ phân tích và phản hồi trong 24 giờ.</p>
+  </div>
+
+  <!-- Form -->
+  <div class="bg-white border border-gray-200 rounded-lg p-8 space-y-6">
+
+    <!-- Project Name -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Tên dự án <span class="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        placeholder="Ví dụ: FinTrack MVP, HR Dashboard PoC..."
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+        value="FinTrack MVP"
+      />
+    </div>
+
+    <!-- Product Type -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Loại sản phẩm <span class="text-red-500">*</span>
+      </label>
+      <div class="flex gap-3">
+        <label class="flex-1 flex items-center gap-3 border-2 border-teal-600 rounded-lg p-4 cursor-pointer bg-teal-50">
+          <input type="radio" name="type" checked class="text-teal-600 w-4 h-4" />
+          <div>
+            <p class="text-sm font-medium text-gray-900">Web App</p>
+            <p class="text-xs text-gray-500">Chạy trên trình duyệt</p>
+          </div>
+        </label>
+        <label class="flex-1 flex items-center gap-3 border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-gray-300">
+          <input type="radio" name="type" class="text-teal-600 w-4 h-4" />
+          <div>
+            <p class="text-sm font-medium text-gray-900">Mobile App</p>
+            <p class="text-xs text-gray-500">iOS / Android</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Mô tả ý tưởng <span class="text-red-500">*</span>
+      </label>
+      <textarea
+        rows="6"
+        placeholder="Mô tả sản phẩm bạn muốn xây dựng: vấn đề nó giải quyết, đối tượng người dùng, các tính năng chính bạn muốn có..."
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none"
+      >App giúp người dùng theo dõi chi tiêu cá nhân với AI tự động phân loại giao dịch. Người dùng chụp ảnh receipt hoặc nhập tay, app phân loại và hiển thị báo cáo theo tuần/tháng. Target: người đi làm 25-35 tuổi muốn kiểm soát tài chính.</textarea>
+      <p class="text-xs text-gray-400 mt-1.5">Tối thiểu 50 ký tự. Càng chi tiết, kết quả càng chính xác.</p>
+    </div>
+
+    <!-- Reference / Inspiration (optional) -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">
+        Tham khảo / Cảm hứng
+        <span class="text-gray-400 font-normal ml-1">(không bắt buộc)</span>
+      </label>
+      <input
+        type="text"
+        placeholder="Ví dụ: tương tự Mint nhưng đơn giản hơn, hoặc link sản phẩm bạn muốn học theo..."
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+      />
+    </div>
+
+    <!-- Divider -->
+    <div class="border-t border-gray-100"></div>
+
+    <!-- Actions -->
+    <div class="flex items-center justify-between">
+      <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Huỷ</a>
+      <button class="inline-flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-5 py-2 rounded-md hover:bg-teal-700 transition-colors">
+        Gửi dự án
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Helper note -->
+  <p class="text-xs text-gray-400 text-center mt-4">
+    Sau khi gửi, chúng tôi sẽ phân tích yêu cầu và liên hệ với bạn trong vòng 24 giờ.
+  </p>
+
+</main>
+</body>
+</html>
