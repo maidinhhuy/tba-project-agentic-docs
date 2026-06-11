@@ -623,9 +623,31 @@ docker compose up -d postgres   # start DB
 
 ---
 
+### AD-19: Makefile Test Target Convention
+
+**Quyết định:** Mỗi repo (be và fe) phải có `Makefile` với target `test`. Agent luôn chạy test bằng lệnh `make test` — không gọi trực tiếp `./gradlew test` hay `npm test`.
+
+**Lý do:** Cung cấp interface đồng nhất cho agent bất kể framework hay toolchain bên dưới. Khi test runner thay đổi, chỉ cần cập nhật `Makefile`, không cần cập nhật agent instructions.
+
+**Be repo (`Makefile`):**
+```makefile
+test:
+	./gradlew test
+```
+
+**Fe repo (`Makefile`):**
+```makefile
+test:
+	npm test
+```
+
+**Quy tắc mở rộng:** Nếu cần phân tách unit/integration test, thêm các target `test-unit` và `test-integration` — nhưng `make test` luôn chạy toàn bộ test suite.
+
+---
+
 ## Open Decisions
 
-_Tất cả open decisions đã được chốt (AD-13 đến AD-18). Không còn OD nào._
+_Tất cả open decisions đã được chốt (AD-13 đến AD-19). Không còn OD nào._
 
 ---
 
@@ -634,5 +656,5 @@ _Tất cả open decisions đã được chốt (AD-13 đến AD-18). Không cò
 - ✅ Step 1: Init — document khởi tạo, input documents loaded
 - ✅ Step 2: Context Analysis — phân tích requirements + Party Mode (11 architectural decisions logged)
 - ✅ Step 3: Starter Template — `template/` (be repo) incorporated. AD-01→JWT, AD-12→self-registration.
-- ✅ Step 4: Detailed Decisions — tất cả Open Decisions đã chốt (AD-13 Flyway, AD-14 Package Structure, AD-15 API Versioning, AD-16 Error Format, AD-17 Local Dev, AD-18 Custom Domain).
+- ✅ Step 4: Detailed Decisions — tất cả Open Decisions đã chốt (AD-13 Flyway, AD-14 Package Structure, AD-15 API Versioning, AD-16 Error Format, AD-17 Local Dev, AD-18 Custom Domain, AD-19 Makefile Test Convention).
 - ⏳ Step 5: Epics & Stories — **sẵn sàng chạy `bmad-create-epics-and-stories`**
