@@ -334,7 +334,7 @@ So that all frontend stories have consistent styling, layout, and server-side fe
 
 **And** `next.config.ts` sets `output: 'standalone'` for Railway deployment.
 
-**And** `Makefile` tại root của FE repo định nghĩa: `test` target (`npm test`), `dev` target (`npm run dev`), `build` target (`npm run build`), `typecheck` target (`npx tsc --noEmit`). Agent chạy test đồng nhất qua `make test` (AD-19).
+**And** `Makefile` tại root của FE repo định nghĩa: `test` target (`npm test`), `dev` target (`npm run dev`), `build` target (`npm run build`), `compile` target (`npx tsc --noEmit`). Agent chạy test đồng nhất qua `make test` (AD-19).
 
 ---
 
