@@ -421,26 +421,30 @@ jOOQ hỗ trợ optimistic locking built-in. Tránh lost updates khi Admin và C
 
 ### AD-12: Account Creation Flow — Self-Registration
 
-**Quyết định:** Public `/register` endpoint (`permitAll()`). Customer tự đăng ký, xác thực email trước khi đăng nhập.
+**Quyết định:** Public `/register` endpoint (`permitAll()`). Customer tự đăng ký và đăng nhập trực tiếp (không cần xác thực email).
+
+**Thay đổi (2026-06-13):** Email verification tạm thời bỏ qua. User được tạo với `is_active=true`, `is_email_verified=true` ngay khi đăng ký.
 
 **Không chọn:** ~~Admin-only account creation~~ (quyết định ban đầu — đã đổi sau Party Mode review).
 
-**Lý do:** Self-registration giảm tải vận hành cho admin, cải thiện UX. Email verification đảm bảo chỉ user thật được active.
+**Lý do bỏ email verification (tạm thời):** Đơn giản hoá flow đăng ký để unblock development. Email verification có thể bật lại sau khi hệ thống core hoàn chỉnh.
 
-**Flow:**
-1. Customer `POST /api/auth/register` → tạo account với `is_active=false`, `is_email_verified=false`
-2. Email verification gửi tới customer email
-3. Customer click link → `GET /api/verification/verify-email?token=...` → `is_email_verified=true`, `is_active=true`
-4. Customer có thể đăng nhập
+**Flow hiện tại:**
+1. Customer `POST /api/auth/register` → tạo account với `is_active=true`, `is_email_verified=true`
+2. Customer có thể đăng nhập ngay
+
+~~**Flow cũ (đã bỏ tạm thời):**~~
+~~1. `POST /api/auth/register` → `is_active=false`, `is_email_verified=false`~~
+~~2. Email verification gửi tới customer~~
+~~3. Customer click link → `is_email_verified=true`, `is_active=true`~~
 
 **SecurityConfig:**
 ```java
 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-.requestMatchers(HttpMethod.GET, "/api/verification/verify-email").permitAll()
-.requestMatchers(HttpMethod.POST, "/api/verification/resend-verification").permitAll()
+// Removed: /api/auth/verify-email, /api/auth/resend-verification
 ```
 
-**Adaptation từ template:** `RegisterUserService` và `EmailVerificationService` dùng nguyên từ `template/` — không cần thay đổi.
+**Adaptation từ template:** `RegisterUserService` dùng nguyên từ `template/` với điều chỉnh: bỏ `EmailVerificationService`, user immediate activation.
 
 ---
 

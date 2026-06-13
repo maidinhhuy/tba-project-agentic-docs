@@ -137,7 +137,7 @@ Mọi dependency kỹ thuật sẵn sàng trước khi implement feature đầu 
 **FRs covered:** AR-1 đến AR-12 (technical prerequisites)
 
 ### Epic 2: Authentication & Self-Registration
-Người dùng có thể tự đăng ký, xác thực email, và đăng nhập vào đúng portal của mình.
+Người dùng có thể tự đăng ký và đăng nhập trực tiếp vào đúng portal của mình (email verification tạm thời bỏ qua).
 **FRs covered:** FR-2, FR-3, FR-1/FR-13 (self-reg)
 
 ### Epic 3: Customer Portal
@@ -286,13 +286,19 @@ So that application services can implement use cases independently of database o
 
 **And** `ProjectStatus` enum has 8 values with `transitionTo(ProjectStatus next)` method — throws `InvalidStatusTransitionException` for invalid transitions. Valid transitions match AD-06 state machine.
 
-**And** port interfaces exist in `core/port/in/`: `LoginUseCase`, `RegisterUserUseCase`, `VerifyEmailUseCase`, `SubmitProjectUseCase`, `GetCustomerProjectsUseCase`, `GetProjectDetailUseCase`, `UpdateProjectStatusUseCase`, `UpdateMilestoneUseCase`, `GetAllProjectsUseCase`.
+**And** port interfaces exist in `core/port/in/`: `LoginUseCase`, `RegisterUserUseCase`, `SubmitProjectUseCase`, `GetCustomerProjectsUseCase`, `GetProjectDetailUseCase`, `UpdateProjectStatusUseCase`, `UpdateMilestoneUseCase`, `GetAllProjectsUseCase`.
 
-**And** port interfaces exist in `core/port/out/`: `UserRepository`, `ProjectRepository`, `MilestoneRepository`, `AuditRepository`, `TokenRepository`, `LoginAttemptRepository`, `EmailVerificationRepository`, `EmailClient`.
+> ~~`VerifyEmailUseCase`~~ — removed (email verification tạm thời bỏ qua).
+
+**And** port interfaces exist in `core/port/out/`: `UserRepository`, `ProjectRepository`, `MilestoneRepository`, `AuditRepository`, `TokenRepository`, `LoginAttemptRepository`, `EmailClient`.
+
+> ~~`EmailVerificationRepository`~~ — removed (email verification tạm thời bỏ qua).
 
 **And** value objects are immutable records/classes: `Email`, `Password`, `PasswordHash`, `Role`, `UserId`, `ProjectId`, `DisplayName`, `IpAddress`, `UserAgent`.
 
-**And** exceptions defined: `InvalidStatusTransitionException`, `AuthenticationException` (with `Type` enum: ACCOUNT_NOT_FOUND, INVALID_CREDENTIALS, TOO_MANY_REQUESTS, EMAIL_NOT_VERIFIED, TOKEN_EXPIRED), `ProjectNotFoundException`, `EmailConflictException`.
+**And** exceptions defined: `InvalidStatusTransitionException`, `AuthenticationException` (with `Type` enum: ACCOUNT_NOT_FOUND, INVALID_CREDENTIALS, TOO_MANY_REQUESTS, TOKEN_EXPIRED), `ProjectNotFoundException`, `EmailConflictException`.
+
+> ~~`EMAIL_NOT_VERIFIED`~~ — removed từ AuthenticationException (không còn verify email flow).
 
 **And** `ProjectStatus.transitionTo()` unit test covers all valid transitions and all invalid transitions (throws exception).
 
@@ -340,7 +346,7 @@ So that all frontend stories have consistent styling, layout, and server-side fe
 
 ## Epic 2: Authentication & Self-Registration
 
-Người dùng có thể tự đăng ký, xác thực email, và đăng nhập vào đúng portal của mình.
+Người dùng có thể tự đăng ký và đăng nhập trực tiếp vào đúng portal của mình (email verification tạm thời bỏ qua).
 **FRs covered:** FR-2, FR-3, FR-1/FR-13 (self-registration)
 
 ---
@@ -353,7 +359,7 @@ So that all API endpoints are protected and users can authenticate securely.
 
 **Acceptance Criteria:**
 
-**Given** a `POST /api/auth/login` request với email + password hợp lệ của user `is_active=true`, `is_email_verified=true`,
+**Given** a `POST /api/auth/login` request với email + password hợp lệ của user `is_active=true`,
 **When** credentials match,
 **Then** trả về HTTP 200 với body `{ token: "<jwt>", expiresIn: 900, refreshToken: "<token>" }` (refreshToken chỉ có khi `rememberMe: true`).
 
@@ -414,45 +420,33 @@ So that email notifications can be sent without blocking main flows, and local d
 
 ---
 
-### Story 2.3: Self-Registration + Email Verification
+### Story 2.3: Self-Registration
+
+> **Thay đổi kế hoạch (2026-06-13):** Email verification tạm thời bỏ qua. Đăng ký thành công = đăng nhập được ngay. Các tasks liên quan đến email verification (TASK-52 VerifyEmailService, TASK-53 verify-email/resend endpoints) đã bị Cancel trên Notion.
 
 As a new customer,
-I want to register for an account with my email and verify it before logging in,
-So that I can access the customer portal with a confirmed identity.
+I want to register for an account with my email and be able to login immediately,
+So that I can access the customer portal without waiting for email verification.
 
 **Acceptance Criteria:**
 
 **Given** `POST /api/auth/register` với `email`, `displayName`, `password` (min 8 ký tự) hợp lệ,
 **When** email chưa tồn tại trong hệ thống,
-**Then** trả về HTTP 201. User được tạo với `role=CUSTOMER`, `is_active=false`, `is_email_verified=false`.
-**And** record `email_verifications` được tạo với `token` UUID và `expires_at = now() + 24 giờ`.
-**And** Email verification được gửi tới địa chỉ đã đăng ký (qua `EmailClient`).
+**Then** trả về HTTP 201. User được tạo với `role=CUSTOMER`, `is_active=true`, `is_email_verified=true`.
 
 **Given** `POST /api/auth/register` với email đã tồn tại,
 **When** gửi request,
 **Then** trả về HTTP 409 với error `"EMAIL_CONFLICT"`.
 
-**Given** `GET /api/auth/verify-email?token=<valid_token>` (chưa expired, chưa dùng),
-**When** gọi endpoint,
-**Then** trả về HTTP 200. User được update: `is_email_verified=true`, `is_active=true`. Token record bị xóa.
-
-**Given** `GET /api/auth/verify-email?token=<expired_token>` (quá 24 giờ),
-**When** gọi endpoint,
-**Then** trả về HTTP 400 với error `"VERIFICATION_EXPIRED"`.
-
-**Given** `POST /api/auth/resend-verification` với email đã register nhưng chưa verify,
-**When** đã gửi < 3 lần trong 24 giờ gần nhất,
-**Then** trả về HTTP 200, gửi lại email verification mới (token cũ invalid).
-
-**Given** `POST /api/auth/resend-verification` khi đã resend ≥ 3 lần trong 24 giờ,
+**Given** `POST /api/auth/register` với password < 8 ký tự hoặc thiếu field bắt buộc,
 **When** gửi request,
-**Then** trả về HTTP 429 với error `"RESEND_LIMIT_EXCEEDED"`.
+**Then** trả về HTTP 400 với error `"VALIDATION_FAILED"`.
 
-**Given** `POST /api/auth/login` với user `is_email_verified=false`,
-**When** gửi credentials đúng,
-**Then** trả về HTTP 401 với error `"EMAIL_NOT_VERIFIED"`.
+**Given** đăng ký thành công (HTTP 201),
+**When** customer gọi `POST /api/auth/login` với đúng credentials,
+**Then** login thành công ngay — không cần bước xác thực email.
 
-**And** endpoint `/api/auth/register` và `/api/auth/verify-email` được configure `permitAll()` trong `SecurityConfig`.
+**And** endpoint `/api/auth/register` được configure `permitAll()` trong `SecurityConfig`.
 
 ---
 
@@ -487,15 +481,13 @@ So that I can access the correct portal (customer or admin) after authentication
 
 **Given** submit register thành công,
 **When** Server Action `registerAction` trả về 201,
-**Then** redirect sang `/register/verify-email` với thông báo "Vui lòng kiểm tra email để xác thực tài khoản." và nút "Gửi lại email".
+**Then** redirect sang `/login` với toast success "Đăng ký thành công. Vui lòng đăng nhập."
+
+> ~~Redirect `/register/verify-email`~~ — removed (email verification tạm thời bỏ qua).
 
 **Given** email đã tồn tại khi register,
 **When** Server Action trả về 409,
 **Then** hiển thị inline error tại email field: "Email này đã được sử dụng."
-
-**Given** user click "Gửi lại email" trên `/register/verify-email`,
-**When** gọi Server Action `resendVerificationAction`,
-**Then** button chuyển sang "Đang gửi…" trong khi processing. Thành công → toast "Đã gửi lại email xác thực."
 
 **And** không có route `/admin/login` riêng — admin dùng chung `/login`.
 **And** Logout: Server Action `logoutAction` clear cookie `tba_access_token`, redirect về `/login`.
