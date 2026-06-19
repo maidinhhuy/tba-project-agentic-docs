@@ -54,7 +54,12 @@ So that database operations are atomic, consistent, and read queries benefit fro
   - `GetAdminProjectDetailService.execute()` — findByIdForAdmin
   - `GetUserProfileService.execute()` — findById
 
-- [ ] Task 3: Verify build + smoke test
+- [ ] Task 3: Update `modules/application/build.gradle` — thêm `spring-tx` dependency
+  - Thêm `apply plugin: 'io.spring.dependency-management'` vào đầu file
+  - Thêm block `dependencyManagement` import Spring Boot BOM `3.4.4`
+  - Thêm `implementation 'org.springframework:spring-tx'` vào `dependencies`
+
+- [ ] Task 4: Verify build + smoke test
   - `./gradlew :modules:application:compileJava` → BUILD SUCCESSFUL
   - Trigger 1 write flow (ví dụ: submit project) → verify không lỗi
 
@@ -133,6 +138,32 @@ try {
 
 Exception bị swallow → không propagate ra transaction → transaction commit bình thường. Giữ nguyên pattern này, **không sửa**.
 
+### build.gradle — application module
+
+`modules/application/build.gradle` hiện tại **không có** `io.spring.dependency-management` — cần thêm để dùng Spring BOM và tránh hard-code version:
+
+```groovy
+apply plugin: 'io.spring.dependency-management'   // ← thêm vào đầu file
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.4"
+    }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+    implementation 'org.springframework:spring-tx'  // ← thêm (version managed by BOM)
+
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+    // ... test deps giữ nguyên
+}
+```
+
+> Spring Boot version `3.4.4` đã khai báo trong root `build.gradle` (`apply false`) — dùng lại đúng version đó.
+
 ### Import đúng
 
 ```java
@@ -162,7 +193,8 @@ claude-sonnet-4-6
 
 ### File List
 
-**UPDATE (12 files):**
+**UPDATE (13 files):**
+- `modules/application/build.gradle`
 - `modules/application/src/main/java/com/tba/agentic/application/service/RegisterUserService.java`
 - `modules/application/src/main/java/com/tba/agentic/application/service/SubmitProjectService.java`
 - `modules/application/src/main/java/com/tba/agentic/application/service/UpdateProjectStatusService.java`
