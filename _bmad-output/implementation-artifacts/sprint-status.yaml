@@ -1,0 +1,75 @@
+# generated: 2026-06-19
+# last_updated: 2026-06-19
+# project: AI-driven
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: "2026-06-19"
+last_updated: "2026-06-19T(story-2.2-created)"
+project: AI-driven
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ── Epic 1: Foundation ────────────────────────────────────────────────────
+  epic-1: done
+  1-1-backend-project-scaffold: done
+  1-2-database-schema-v1-migration: done
+  1-3-jooq-codegen-pipeline: done          # story file: 1-3-jooq-codegen-pipeline.md
+  1-4-core-domain-model: done
+  1-5-frontend-project-init: done
+  epic-1-retrospective: optional
+
+  # ── Epic 2: Authentication & Self-Registration ────────────────────────────
+  epic-2: in-progress
+  2-1-jwt-auth-backend: done               # story file: 2-1-simple-login-backend.md
+  2-2-email-infrastructure: ready-for-dev  # story file: 2-2-email-infrastructure.md
+  2-3-self-registration: done              # story file: 2-3-backend-self-registration.md
+  2-4-auth-ui: done
+  2-5-rbac-route-protection: done
+  epic-2-retrospective: optional
+
+  # ── Epic 3: Customer Portal ───────────────────────────────────────────────
+  epic-3: done
+  3-1-submit-project: done                 # story file: 3-1-backend-submit-project.md
+  3-2-customer-dashboard: done
+  3-3-project-detail: done                 # story file: 3-3-backend-get-project-detail.md
+  epic-3-retrospective: optional
+
+  # ── Epic 4: Admin Dashboard ───────────────────────────────────────────────
+  epic-4: in-progress
+  4-1-admin-project-table: done
+  4-2-status-update-progress-note: done
+  4-3-milestone-management: done
+  epic-4-retrospective: optional
