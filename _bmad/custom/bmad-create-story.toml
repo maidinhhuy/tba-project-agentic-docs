@@ -1,0 +1,22 @@
+# Project-level customization for bmad-create-story.
+# Tự động load backend story guide làm persistent context khi tạo story.
+
+[workflow]
+
+persistent_facts = [
+  "file:{project-root}/tba-project-agentic-be/docs/BACKEND_STORY_GUIDE.md",
+]
+
+# Sau khi story được tạo, nhắc nhở về 2-task structure
+on_complete = """
+After saving the story file, verify the following backend task structure rules:
+1. Story must have exactly 2 tasks: Task 1 = core (domain definition), Task 2 = application (implementation)
+2. Task 2 must declare 'Depends On: Task 1' explicitly
+3. Task 1 must list VOs before entities, entities before aggregations
+4. All bound models (command/criteria) must use domain VOs, not raw String/int for business data
+5. Each file entry must have full path: core/src/main/java/com/tba/agentic/.../<FileName>.java
+6. No .yml/.xml/.env files in task file lists (only in Dev Notes)
+7. Each task must have ≤ 6 files (split into sub-tasks if more)
+8. Task 1 verify section: ./gradlew :core:compileJava
+9. Task 2 verify section: ./gradlew :application:compileJava + curl tests for API stories
+"""
