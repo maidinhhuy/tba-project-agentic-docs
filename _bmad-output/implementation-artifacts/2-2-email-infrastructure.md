@@ -1,4 +1,4 @@
-# Story 2.2: Email Infrastructure — ResendEmailAdapter
+# Story 2.2: Email Infrastructure — ResendEmailClient
 
 **Status:** ready-for-dev
 **Story ID:** 2.2
@@ -9,7 +9,7 @@
 ## Story
 
 As a developer,
-I want a `ResendEmailAdapter` implementing the `EmailClient` port with fire-and-forget semantics and a dev-mode fallback,
+I want a `ResendEmailClient` implementing the `EmailClient` port with fire-and-forget semantics and a dev-mode fallback,
 So that email notifications can be sent without blocking main flows, and local dev works without a real API key.
 
 ---
@@ -19,7 +19,7 @@ So that email notifications can be sent without blocking main flows, and local d
 **AC-1** — Prod mode (API key set):
 **Given** `TBA_RESEND_API_KEY` được set trong environment,
 **When** `EmailClient.send(EmailMessage)` được gọi,
-**Then** `ResendEmailAdapter` gọi Resend HTTP API (`POST https://api.resend.com/emails`) với đúng `from`, `to`, `subject`, `html`.
+**Then** `ResendEmailClient` gọi Resend HTTP API (`POST https://api.resend.com/emails`) với đúng `from`, `to`, `subject`, `html`.
 **And** nếu Resend trả về lỗi hoặc timeout (>5s), exception bị catch và log ở `WARN` level — không propagate lên caller.
 
 **AC-2** — Dev mode (không có API key):
@@ -36,7 +36,7 @@ So that email notifications can be sent without blocking main flows, and local d
 **AC-4** — Cấu trúc:
 **And** `EmailClient` interface tại `modules/core/.../port/out/EmailClient.java` — KHÔNG sửa.
 **And** `EmailMessage` record tại `modules/core/.../port/out/EmailMessage.java` — KHÔNG sửa (fields: `to`, `subject`, `htmlBody`).
-**And** `ResendEmailAdapter` tại `modules/infrastructure/.../infrastructure/email/ResendEmailAdapter.java`.
+**And** `ResendEmailClient` tại `modules/infrastructure/.../infrastructure/email/ResendEmailClient.java`.
 **And** `DevEmailClient` được update: bỏ `@Primary`, thêm `@ConditionalOnMissingBean(EmailClient.class)`.
 
 ---
@@ -50,8 +50,8 @@ So that email notifications can be sent without blocking main flows, and local d
   - Thêm import: `org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean`
   - Logic `send()` giữ nguyên — không thay đổi
 
-- [ ] Task 2: Create `ResendEmailAdapter`
-  - File: `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/ResendEmailAdapter.java`
+- [ ] Task 2: Create `ResendEmailClient`
+  - File: `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/ResendEmailClient.java`
   - Annotations: `@Service`, `@Primary`, `@Slf4j`
   - Inject `@Value("${resend.api-key:}")` → `String apiKey`
   - Inject `@Value("${tba.email.from:noreply@tba.dev}")` → `String fromAddress`
@@ -96,7 +96,7 @@ modules/
   infrastructure/src/main/java/com/tba/agentic/
     infrastructure/email/
       DevEmailClient.java            ← UPDATE (bỏ @Primary)
-      ResendEmailAdapter.java        ← CREATE NEW
+      ResendEmailClient.java        ← CREATE NEW
     resources/application.yml        ← UPDATE (thêm resend config)
 ```
 
@@ -120,7 +120,7 @@ Chỉ có 3 fields. Epics.md đề cập `textBody` nhưng record hiện tại k
 public class TbaAgenticApplication { ... }
 ```
 
-→ Chỉ cần thêm `@Async` vào method `send()` trong `ResendEmailAdapter`. Không cần tạo config class mới.
+→ Chỉ cần thêm `@Async` vào method `send()` trong `ResendEmailClient`. Không cần tạo config class mới.
 
 ### DevEmailClient — Sau khi update
 
@@ -137,9 +137,9 @@ public class DevEmailClient implements EmailClient {
 }
 ```
 
-`@ConditionalOnMissingBean` đảm bảo `DevEmailClient` chỉ được tạo khi không có bean `EmailClient` nào khác — tức là khi `ResendEmailAdapter` active, `DevEmailClient` bị bỏ qua hoàn toàn.
+`@ConditionalOnMissingBean` đảm bảo `DevEmailClient` chỉ được tạo khi không có bean `EmailClient` nào khác — tức là khi `ResendEmailClient` active, `DevEmailClient` bị bỏ qua hoàn toàn.
 
-### ResendEmailAdapter — Full Implementation
+### ResendEmailClient — Full Implementation
 
 ```java
 package com.tba.agentic.infrastructure.email;
@@ -164,7 +164,7 @@ import java.util.Map;
 @Service
 @Primary
 @Slf4j
-public class ResendEmailAdapter implements EmailClient {
+public class ResendEmailClient implements EmailClient {
 
     @Value("${resend.api-key:}")
     private String apiKey;
@@ -309,4 +309,4 @@ claude-sonnet-4-6
 - `modules/infrastructure/src/main/resources/application.yml`
 
 **CREATE:**
-- `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/ResendEmailAdapter.java`
+- `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/ResendEmailClient.java`
