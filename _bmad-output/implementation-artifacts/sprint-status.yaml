@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-06-19"
-last_updated: "2026-06-20T(epic-8-created)"
+last_updated: "2026-06-20T(epic-8-all-stories-done)"
 project: AI-driven
 project_key: NOKEY
 tracking_system: file-system
@@ -91,10 +91,13 @@ development_status:
   epic-7-retrospective: optional
 
   # ── Epic 8: Milestone Delivery & Customer Review ──────────────────────────
-  epic-8: in-progress
-  8-1-db-migration-s3-infrastructure: ready-for-dev   # BE: V2 migration (milestone delivery columns + milestone_reviews table) + S3 FileStoragePort/Adapter
-  8-2-admin-deliver-milestone-api: ready-for-dev       # BE: POST deliver endpoint + auto AWAITING_REVIEW transition + email customer
-  8-3-customer-review-api-state-machine: ready-for-dev # BE: POST review (approve/revision) + state machine + email admin + presigned URL download
-  8-4-fe-admin-deliver-form-review-history: ready-for-dev  # FE Admin: form giao milestone + review history timeline
-  8-5-fe-customer-deliverable-review-form: ready-for-dev   # FE Customer: xem deliverable + approve/revision form + revision warnings
+  epic-8: done
+  8-1-db-migration-s3-infrastructure: done   # BE: V2 migration (milestone delivery columns + milestone_reviews table) + S3 FileStoragePort/Adapter
+  8-2-admin-deliver-milestone-api: done       # BE: POST deliver endpoint + auto AWAITING_REVIEW transition + email customer
+  8-3-customer-review-api-state-machine: done # BE: POST review (approve/revision) + state machine + email admin + presigned URL download
+  8-4-fe-admin-deliver-form-review-history: done  # FE Admin: form giao milestone + review history timeline
+  8-5-fe-customer-deliverable-review-form: done   # FE Customer: xem deliverable + approve/revision form + revision warnings
+  8-6-be-presigned-s3-upload-url: done        # BE: new endpoint POST /request-upload-url + modify deliver to accept JSON (remove multipart) — fixes Content-length bug
+  8-7-fe-admin-presigned-upload-flow: done    # FE Admin: refactor DeliverMilestoneForm — browser uploads directly to S3 via presigned PUT URL; depends on 8-6
+  8-8-fe-milestone-ui-sync-i18n: done         # FE: admin milestone card dedup + all milestone components use useTranslations — en.json + vi.json keys added
   epic-8-retrospective: optional
