@@ -76,21 +76,22 @@ So that I can control quality before the project moves forward.
 
 ## Tasks / Subtasks
 
-### BE Core Layer — State Machine Fix
+> ⚠️ **AGENT FILE BOUNDARY RULE (BẮT BUỘC — ĐỌC TRƯỚC KHI CODE):**
+> - **1 Java file = đúng 1 top-level class/record/interface.** KHÔNG ĐƯỢC append thêm class, record, hay interface vào cuối bất kỳ file nào.
+> - Mỗi task chỉ động đến đúng 1 file. Sau khi xong 1 task → lưu file → rồi mới mở file tiếp theo.
+> - `core/` = declarations only. `application/` = service logic. `infrastructure/` = adapters, repos, controllers, config.
 
-- [ ] **Task 1: Cập nhật ProjectStatus transitions**
-  - File: `modules/core/src/main/java/com/tba/agentic/domain/value/project/ProjectStatus.java`
-  - Tìm dòng `AWAITING_REVIEW, Set.of(IN_REVISION, FINALIZING, CANCELLED)`
-  - Sửa thành:
+### Layer 1 — Domain & Core Ports
+
+- [ ] **Task 1 — File: `ProjectStatus.java`**
+  - `modules/core/src/main/java/com/tba/agentic/domain/value/project/ProjectStatus.java`
+  - Tìm dòng `AWAITING_REVIEW, Set.of(IN_REVISION, FINALIZING, CANCELLED)` sửa thành:
   ```java
   AWAITING_REVIEW, Set.of(IN_DEVELOPMENT, IN_REVISION, DELIVERED, FINALIZING, CANCELLED),
   ```
-  - DELIVERED cũng cần transitions nếu chưa có (DELIVERED thường là terminal state — kiểm tra xem có dòng nào cho nó không)
 
-### BE Core Layer — Ports
-
-- [ ] **Task 2: Tạo ReviewMilestoneCommand**
-  - File: `modules/core/src/main/java/com/tba/agentic/port/bound/ReviewMilestoneCommand.java`
+- [ ] **Task 2 — File mới: `ReviewMilestoneCommand.java`**
+  - `modules/core/src/main/java/com/tba/agentic/port/bound/ReviewMilestoneCommand.java`
   ```java
   package com.tba.agentic.port.bound;
 
@@ -102,16 +103,16 @@ So that I can control quality before the project moves forward.
   ) {}
   ```
 
-- [ ] **Task 3: Tạo ReviewMilestoneResult**
-  - File: `modules/core/src/main/java/com/tba/agentic/port/bound/ReviewMilestoneResult.java`
+- [ ] **Task 3 — File mới: `ReviewMilestoneResult.java`**
+  - `modules/core/src/main/java/com/tba/agentic/port/bound/ReviewMilestoneResult.java`
   ```java
   package com.tba.agentic.port.bound;
 
   public record ReviewMilestoneResult(boolean warningRevisionExhausted) {}
   ```
 
-- [ ] **Task 4: Tạo ReviewMilestoneUseCase port**
-  - File: `modules/core/src/main/java/com/tba/agentic/port/in/ReviewMilestoneUseCase.java`
+- [ ] **Task 4 — File mới: `ReviewMilestoneUseCase.java`**
+  - `modules/core/src/main/java/com/tba/agentic/port/in/ReviewMilestoneUseCase.java`
   ```java
   package com.tba.agentic.port.in;
 
@@ -123,27 +124,70 @@ So that I can control quality before the project moves forward.
   }
   ```
 
-- [ ] **Task 5: Thêm methods vào MilestoneRepository**
-  - File: `modules/core/src/main/java/com/tba/agentic/port/out/MilestoneRepository.java`
-  - Thêm:
+- [ ] **Task 5 — File: `MilestoneRepository.java`** (chỉ thêm method signatures, KHÔNG thêm class/record nào)
+  - `modules/core/src/main/java/com/tba/agentic/port/out/MilestoneRepository.java`
   ```java
   void saveReviewStatus(Long milestoneId, String reviewStatus);
   void insertReview(Long milestoneId, String action, String comment, Long reviewedBy);
   boolean allMilestonesApproved(Long projectId);
   ```
 
-- [ ] **Task 6: Thêm email method vào EmailClient**
-  - File: `modules/core/src/main/java/com/tba/agentic/port/out/EmailClient.java`
-  - Thêm:
+- [ ] **Task 6 — File: `ProjectRepository.java`** (chỉ thêm 1 method signature)
+  - `modules/core/src/main/java/com/tba/agentic/port/out/ProjectRepository.java`
+  ```java
+  void decrementRevisionCount(Long projectId);
+  ```
+
+- [ ] **Task 7 — File: `EmailClient.java`** (chỉ thêm 2 abstract method signatures, KHÔNG có body, KHÔNG có `default`)
+  - `modules/core/src/main/java/com/tba/agentic/port/out/EmailClient.java`
   ```java
   void sendMilestoneApprovedEmail(String adminEmail, String projectName, String milestoneName);
   void sendRevisionRequestedEmail(String adminEmail, String projectName, String milestoneName, String comment, boolean revisionExhausted);
   ```
 
-### BE Application Layer
+### Layer 2 — Email Infrastructure
 
-- [ ] **Task 7: Tạo ReviewMilestoneService**
-  - File: `modules/application/src/main/java/com/tba/agentic/application/service/ReviewMilestoneService.java`
+- [ ] **Task 8 — File: `DevEmailClient.java`** (chỉ thêm 2 @Override methods vào class hiện có — KHÔNG thêm class nào sau closing `}`)
+  - `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/DevEmailClient.java`
+  ```java
+  @Override
+  public void sendMilestoneApprovedEmail(String adminEmail, String projectName, String milestoneName) {
+      log.info("[EMAIL-DEV] sendMilestoneApprovedEmail to={} project={} milestone={}", adminEmail, projectName, milestoneName);
+  }
+
+  @Override
+  public void sendRevisionRequestedEmail(String adminEmail, String projectName, String milestoneName, String comment, boolean revisionExhausted) {
+      log.info("[EMAIL-DEV] sendRevisionRequestedEmail to={} project={} milestone={} comment={} exhausted={}", adminEmail, projectName, milestoneName, comment, revisionExhausted);
+  }
+  ```
+
+- [ ] **Task 9 — File: `ResendEmailClient.java`** (chỉ thêm 2 @Override methods vào class hiện có)
+  - `modules/infrastructure/src/main/java/com/tba/agentic/infrastructure/email/ResendEmailClient.java`
+  ```java
+  @Override
+  public void sendMilestoneApprovedEmail(String adminEmail, String projectName, String milestoneName) {
+      send(new EmailMessage(
+          adminEmail,
+          "Milestone Approved: " + milestoneName,
+          "<p>Milestone <b>" + milestoneName + "</b> of project <b>" + projectName + "</b> has been approved.</p>"
+      ));
+  }
+
+  @Override
+  public void sendRevisionRequestedEmail(String adminEmail, String projectName, String milestoneName, String comment, boolean revisionExhausted) {
+      String warning = revisionExhausted ? "<p><b>Warning:</b> Revision quota exhausted.</p>" : "";
+      send(new EmailMessage(
+          adminEmail,
+          "Revision Requested: " + milestoneName,
+          "<p>Revision requested for milestone <b>" + milestoneName + "</b>. Comment: " + comment + "</p>" + warning
+      ));
+  }
+  ```
+
+### Layer 3 — Application Service
+
+- [ ] **Task 10 — File mới: `ReviewMilestoneService.java`** (file riêng trong module `application`, KHÔNG đặt trong `infrastructure`)
+  - `modules/application/src/main/java/com/tba/agentic/application/service/ReviewMilestoneService.java`
   ```java
   package com.tba.agentic.application.service;
 
@@ -173,21 +217,21 @@ So that I can control quality before the project moves forward.
       public ReviewMilestoneResult review(ReviewMilestoneCommand command) {
           if ("REVISION_REQUESTED".equals(command.action())
                   && (command.comment() == null || command.comment().isBlank())) {
-              throw new IllegalArgumentException("Comment là bắt buộc khi yêu cầu chỉnh sửa.");
+              throw new IllegalArgumentException("Comment la bat buoc khi yeu cau chinh sua.");
           }
 
           var milestone = milestoneRepository.findByIdOrThrow(command.milestoneId());
 
-          if ("PENDING_DELIVERY".equals(milestone.reviewStatus())) {
-              throw new IllegalStateException("Milestone chưa được giao để review.");
+          if ("PENDING_DELIVERY".equals(milestone.getReviewStatus())) {
+              throw new IllegalStateException("Milestone chua duoc giao de review.");
           }
-          if ("APPROVED".equals(milestone.reviewStatus())) {
-              throw new IllegalStateException("Milestone đã được phê duyệt.");
+          if ("APPROVED".equals(milestone.getReviewStatus())) {
+              throw new IllegalStateException("Milestone da duoc phe duyet.");
           }
 
-          var project = projectRepository.findByIdOrThrow(milestone.projectId());
+          var project = projectRepository.findByIdOrThrow(milestone.getProjectId().value());
           if (!project.customerId().equals(command.customerUserId())) {
-              throw new SecurityException("Không có quyền review milestone này.");
+              throw new SecurityException("Khong co quyen review milestone nay.");
           }
 
           milestoneRepository.insertReview(
@@ -197,27 +241,21 @@ So that I can control quality before the project moves forward.
 
           if ("APPROVED".equals(command.action())) {
               milestoneRepository.saveReviewStatus(command.milestoneId(), "APPROVED");
-              boolean allApproved = milestoneRepository.allMilestonesApproved(milestone.projectId());
-              if (allApproved) {
-                  project.transitionTo(ProjectStatus.DELIVERED);
-              } else {
-                  project.transitionTo(ProjectStatus.IN_DEVELOPMENT);
-              }
+              boolean allApproved = milestoneRepository.allMilestonesApproved(milestone.getProjectId().value());
+              project.transitionTo(allApproved ? ProjectStatus.DELIVERED : ProjectStatus.IN_DEVELOPMENT);
               projectRepository.save(project);
 
               var admin = userRepository.findAdminUser();
               try {
-                  emailClient.sendMilestoneApprovedEmail(admin.email(), project.name(), milestone.name());
+                  emailClient.sendMilestoneApprovedEmail(admin.email(), project.name(), milestone.getName());
               } catch (Exception e) {
                   log.warn("Failed to send approval email", e);
               }
-
           } else {
               milestoneRepository.saveReviewStatus(command.milestoneId(), "REVISION_REQUESTED");
-
               warningRevisionExhausted = project.revisionCount() <= 0;
               if (!warningRevisionExhausted) {
-                  projectRepository.decrementRevisionCount(milestone.projectId());
+                  projectRepository.decrementRevisionCount(milestone.getProjectId().value());
               }
               project.transitionTo(ProjectStatus.IN_REVISION);
               projectRepository.save(project);
@@ -225,7 +263,7 @@ So that I can control quality before the project moves forward.
               var admin = userRepository.findAdminUser();
               try {
                   emailClient.sendRevisionRequestedEmail(
-                      admin.email(), project.name(), milestone.name(), command.comment(), warningRevisionExhausted);
+                      admin.email(), project.name(), milestone.getName(), command.comment(), warningRevisionExhausted);
               } catch (Exception e) {
                   log.warn("Failed to send revision email", e);
               }
@@ -236,11 +274,11 @@ So that I can control quality before the project moves forward.
   }
   ```
 
-### BE Infrastructure Layer
+### Layer 4 — Repository Infrastructure
 
-- [ ] **Task 8: Implement MilestoneRepository methods mới trong JooqMilestoneRepository**
-  - Tìm file repo implement MilestoneRepository (hoặc tạo nếu chưa có từ story 8.2)
-  - Implement `saveReviewStatus`:
+- [ ] **Task 11 — File: `JooqMilestoneRepository.java`** (chỉ thêm 3 @Override methods vào class hiện có)
+  - Tìm file implement MilestoneRepository trong `modules/infrastructure/`
+  - Thêm imports nếu chưa có: `import static com.tba.agentic.infrastructure.jooq.Tables.MILESTONE_REVIEWS;` và `import java.time.OffsetDateTime;`
   ```java
   @Override
   public void saveReviewStatus(Long milestoneId, String reviewStatus) {
@@ -249,9 +287,7 @@ So that I can control quality before the project moves forward.
           .where(MILESTONES.MILESTONE_ID.eq(milestoneId))
           .execute();
   }
-  ```
-  - Implement `insertReview`:
-  ```java
+
   @Override
   public void insertReview(Long milestoneId, String action, String comment, Long reviewedBy) {
       dsl.insertInto(MILESTONE_REVIEWS)
@@ -262,9 +298,7 @@ So that I can control quality before the project moves forward.
           .set(MILESTONE_REVIEWS.REVIEWED_AT, OffsetDateTime.now())
           .execute();
   }
-  ```
-  - Implement `allMilestonesApproved`:
-  ```java
+
   @Override
   public boolean allMilestonesApproved(Long projectId) {
       Integer count = dsl.selectCount()
@@ -276,21 +310,36 @@ So that I can control quality before the project moves forward.
   }
   ```
 
-- [ ] **Task 9: Thêm decrementRevisionCount vào ProjectRepository**
-  - Port: `modules/core/src/main/java/com/tba/agentic/port/out/ProjectRepository.java`
-  - Thêm: `void decrementRevisionCount(Long projectId);`
-  - Implement trong JooqProjectRepository:
+- [ ] **Task 12 — File: `JooqProjectRepository.java`** (chỉ thêm 1 @Override method)
+  - Tìm file implement ProjectRepository trong `modules/infrastructure/`
   ```java
-  dsl.update(PROJECTS)
-      .set(PROJECTS.REVISION_COUNT, DSL.greatest(PROJECTS.REVISION_COUNT.minus(1), DSL.val(0)))
-      .where(PROJECTS.PROJECT_ID.eq(projectId))
-      .execute();
+  @Override
+  public void decrementRevisionCount(Long projectId) {
+      dsl.update(PROJECTS)
+          .set(PROJECTS.REVISION_COUNT, DSL.greatest(PROJECTS.REVISION_COUNT.minus(1), DSL.val(0)))
+          .where(PROJECTS.PROJECT_ID.eq(projectId))
+          .execute();
+  }
   ```
-  - `DSL.greatest(x, 0)` đảm bảo không âm
 
-- [ ] **Task 10: Tạo CustomerMilestoneController**
-  - File: `modules/infrastructure/src/main/java/com/tba/agentic/adapter/controller/CustomerMilestoneController.java`
+### Layer 5 — HTTP Controller & Config
+
+- [ ] **Task 13 — File mới: `CustomerMilestoneController.java`** (chỉ 1 class, DTOs là inner records bên trong)
+  - `modules/infrastructure/src/main/java/com/tba/agentic/adapter/controller/CustomerMilestoneController.java`
+  - Xem AdminProjectController để lấy đúng import JwtUserDetails
   ```java
+  package com.tba.agentic.adapter.controller;
+
+  import com.tba.agentic.port.bound.ReviewMilestoneCommand;
+  import com.tba.agentic.port.in.ReviewMilestoneUseCase;
+  import com.tba.agentic.port.out.FileStoragePort;
+  import com.tba.agentic.port.out.MilestoneRepository;
+  import lombok.RequiredArgsConstructor;
+  import org.springframework.http.ResponseEntity;
+  import org.springframework.security.access.prepost.PreAuthorize;
+  import org.springframework.security.core.annotation.AuthenticationPrincipal;
+  import org.springframework.web.bind.annotation.*;
+
   @RestController
   @RequiredArgsConstructor
   @RequestMapping("/api/customer/milestones")
@@ -299,6 +348,10 @@ So that I can control quality before the project moves forward.
       private final ReviewMilestoneUseCase reviewMilestoneUseCase;
       private final FileStoragePort fileStorage;
       private final MilestoneRepository milestoneRepository;
+
+      public record ReviewRequestDto(String action, String comment) {}
+      public record ReviewResponseDto(boolean warningRevisionExhausted) {}
+      public record DownloadUrlResponseDto(String url) {}
 
       @PostMapping("/{milestoneId}/review")
       @PreAuthorize("hasRole('CUSTOMER')")
@@ -316,24 +369,31 @@ So that I can control quality before the project moves forward.
       @PreAuthorize("hasRole('CUSTOMER')")
       public ResponseEntity<DownloadUrlResponseDto> downloadUrl(@PathVariable Long milestoneId) {
           var milestone = milestoneRepository.findByIdOrThrow(milestoneId);
-          if (milestone.deliverableFileKey() == null) {
+          if (milestone.getDeliverableFileKey() == null) {
               return ResponseEntity.notFound().build();
           }
-          String url = fileStorage.generatePresignedUrl(milestone.deliverableFileKey(), 30);
+          String url = fileStorage.generatePresignedUrl(milestone.getDeliverableFileKey(), 30);
           return ResponseEntity.ok(new DownloadUrlResponseDto(url));
       }
   }
   ```
-  - Tạo DTOs `ReviewRequestDto(String action, String comment)` và `ReviewResponseDto(boolean warningRevisionExhausted)` và `DownloadUrlResponseDto(String url)`
 
-- [ ] **Task 11: Wire trong UseCaseConfig**
-  - Thêm `ReviewMilestoneService` bean, inject dependencies tương tự Task 9 của story 8.2
+- [ ] **Task 14 — File: `UseCaseConfig.java`** (chỉ thêm 1 @Bean method, không xóa beans hiện có)
+  - `modules/infrastructure/src/main/java/com/tba/agentic/config/UseCaseConfig.java`
+  ```java
+  @Bean
+  public ReviewMilestoneUseCase reviewMilestoneUseCase(
+      MilestoneRepository milestoneRepository,
+      ProjectRepository projectRepository,
+      UserRepository userRepository,
+      EmailClient emailClient
+  ) {
+      return new ReviewMilestoneService(milestoneRepository, projectRepository, userRepository, emailClient);
+  }
+  ```
 
-- [ ] **Task 12: Implement email methods trong ResendEmailClient và DevEmailClient**
+- [ ] **Task 15 — Verify:** `make compile` + `make test` pass
 
-- [ ] **Task 13: make compile + make test**
-
----
 
 ## Dev Notes
 

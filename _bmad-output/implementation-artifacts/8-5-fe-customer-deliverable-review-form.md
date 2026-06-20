@@ -127,7 +127,7 @@ So that I can give feedback and control the quality of work delivered to me.
     const { token } = await getAuthSession();
 
     const response = await fetch(
-      `${process.env.BACKEND_URL}/api/customer/milestones/${milestoneId}/review`,
+      `${process.env.API_BASE_URL}/api/customer/milestones/${milestoneId}/review`,
       {
         method: 'POST',
         headers: {
@@ -152,7 +152,7 @@ So that I can give feedback and control the quality of work delivered to me.
     const { token } = await getAuthSession();
 
     const response = await fetch(
-      `${process.env.BACKEND_URL}/api/customer/milestones/${milestoneId}/download-url`,
+      `${process.env.API_BASE_URL}/api/customer/milestones/${milestoneId}/download-url`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 

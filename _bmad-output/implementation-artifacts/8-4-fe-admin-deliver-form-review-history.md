@@ -106,7 +106,7 @@ So that I can track delivery status and customer feedback in one place.
     const { token } = await getAuthSession();
 
     const response = await fetch(
-      `${process.env.BACKEND_URL}/api/admin/milestones/${milestoneId}/deliver`,
+      `${process.env.API_BASE_URL}/api/admin/milestones/${milestoneId}/deliver`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

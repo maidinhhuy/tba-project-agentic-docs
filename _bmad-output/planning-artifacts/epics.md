@@ -1254,3 +1254,299 @@ So that I can clearly communicate what I want changed and track the project towa
 **Given** milestone có `review_status=REVISION_REQUESTED`,
 **When** Customer xem milestone row,
 **Then** milestone hiện badge "Đang chỉnh sửa". Không hiện form review (đang chờ Admin giao lại).
+
+---
+
+### Story 8.6: BE — Presigned S3 Upload URL Endpoint
+
+As a developer,
+I want the Admin deliver endpoint to accept a pre-uploaded S3 key instead of a streamed file,
+So that browser clients can upload files directly to S3 and bypass the multipart-forwarding Content-Length bug in Node.js fetch (undici).
+
+**Root Cause:**
+`S3FileStorageAdapter.upload()` calls `RequestBody.fromInputStream(data, -1)` with an unknown content length. When Next.js forwards multipart FormData to Spring Boot via undici, undici cannot compute `Content-Length` for streamed file entries. Spring Boot's multipart parser then receives a negative Content-Length and returns `400 BAD_REQUEST: "Content-length must not be negative"`. The fix is to decouple upload from the deliver call: let the browser PUT directly to S3 using a presigned URL, then deliver with just the resulting S3 object key.
+
+**Acceptance Criteria:**
+
+**Given** `FileStoragePort` (core/port/out),
+**When** inspected after this story,
+**Then** it has a new method: `GenerateUploadUrlResult generatePresignedUploadUrl(String fileName, String contentType, String projectId, String milestoneId)` where `GenerateUploadUrlResult` is a record `{ String uploadUrl, String s3Key }`.
+
+**Given** `S3FileStorageAdapter` implements the new method,
+**When** called with valid params,
+**Then** it generates a presigned `PutObject` URL via `S3Presigner.presignPutObject` with TTL = 15 minutes. The `s3Key` format is `deliverables/{projectId}/{milestoneId}/{uuid}-{fileName}`.
+**And** the presigned URL includes `Content-Type` constraint matching the supplied `contentType`.
+
+**Given** `POST /api/admin/milestones/{milestoneId}/request-upload-url` with body `{ fileName: string, contentType: string }`,
+**When** Admin is authenticated (`hasRole("ADMIN")`),
+**Then** response is HTTP 200 `{ uploadUrl: string, s3Key: string }`.
+**And** if `fileName` or `contentType` is blank → HTTP 400 `VALIDATION_FAILED`.
+**And** if milestone not found → HTTP 404.
+
+**Given** the existing `POST /api/admin/milestones/{milestoneId}/deliver` endpoint,
+**When** updated in this story,
+**Then** it accepts `Content-Type: application/json` body:
+```json
+{ "deliverableUrl": "...", "deliverableS3Key": "...", "deliverableFileName": "...", "deliveryNote": "..." }
+```
+All fields are optional individually, but at least one of `deliverableUrl` or `deliverableS3Key` must be non-blank (existing validation rule preserved).
+
+**Given** `DeliverMilestoneCommand` (core/port/bound),
+**When** updated,
+**Then** field `InputStream deliverableFile` is **removed**; two fields added: `String deliverableS3Key` (nullable), `String deliverableFileName` (nullable).
+
+**Given** `DeliverMilestoneService.deliver()`,
+**When** updated,
+**Then** the S3 upload step (`fileStorage.upload(...)`) is **removed** — service directly calls `milestoneRepository.saveDelivery(milestoneId, deliverableUrl, deliverableS3Key, deliverableFileName, deliveryNote)` using the key already in the command.
+
+**And** S3 bucket CORS must allow `PUT` from the frontend origin (`NEXT_PUBLIC_APP_URL`) — add CORS configuration to `S3Config.java` on startup or document the AWS console config required.
+**And** `AdminMilestoneController` no longer imports `MultipartFile` or `MultipartHttpServletRequest`.
+
+**Technical Notes:**
+- Files: `FileStoragePort.java`, `S3FileStorageAdapter.java`, `AdminMilestoneController.java`, `DeliverMilestoneCommand.java`, `DeliverMilestoneService.java`
+- New port/bound type: `GenerateUploadUrlResult.java` record in `core/port/bound/`
+- `S3Presigner` bean already configured in `S3Config.java` (used for GET presigned URLs)
+- `UseCaseConfig.java` and wiring: no new use case needed — new endpoint calls `fileStorage.generatePresignedUploadUrl()` directly in the controller (no use case layer for this admin utility)
+- CORS config for S3 bucket: PUT method, allow header `Content-Type`, origin = `$NEXT_PUBLIC_APP_URL`
+
+---
+
+### Story 8.7: FE Admin — Presigned Upload Flow Refactor
+
+As an admin,
+I want to upload deliverable files directly from my browser to S3 using a presigned URL,
+So that the upload is reliable regardless of Next.js server action multipart limitations.
+
+**Dependencies:** Story 8.6 (BE presigned endpoint must be deployed).
+
+**Acceptance Criteria:**
+
+**Given** `_actions.ts` for admin project detail,
+**When** updated,
+**Then** it exports a new server action:
+```typescript
+export async function requestUploadUrl(
+  milestoneId: number, fileName: string, contentType: string
+): Promise<{ uploadUrl: string; s3Key: string } | { error: string }>
+```
+Calls `POST /api/admin/milestones/{milestoneId}/request-upload-url` with JSON body, forwards cookies for auth.
+
+**Given** the existing `deliverMilestone` server action,
+**When** updated,
+**Then** its signature changes to:
+```typescript
+export async function deliverMilestone(
+  milestoneId: number,
+  payload: { deliverableUrl: string | null; deliveryNote: string | null; s3Key: string | null; fileName: string | null }
+): Promise<{ success: boolean; message?: string }>
+```
+Sends `POST /api/admin/milestones/{milestoneId}/deliver` with `Content-Type: application/json` body. No multipart, no Buffer construction.
+**And** all `console.log` debug statements from previous implementation are removed.
+
+**Given** `DeliverMilestoneForm.tsx` on form submit with a file selected:
+**When** Admin clicks submit,
+**Then** the flow executes in sequence:
+1. State shows "Đang tải file…" (uploading step)
+2. Calls `requestUploadUrl(milestoneId, file.name, file.type || 'application/octet-stream')` → `{ uploadUrl, s3Key }`
+3. Executes `fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })` — direct browser-to-S3 upload (no auth header needed — presigned URL is self-contained)
+4. If S3 PUT fails → toast error "Tải file thất bại. Vui lòng thử lại." / "File upload failed. Please try again.", form stays open
+5. State shows "Đang giao…" (deliver step)
+6. Calls `deliverMilestone(milestoneId, { deliverableUrl, deliveryNote, s3Key, fileName: file.name })`
+
+**Given** `DeliverMilestoneForm.tsx` on form submit with URL only (no file):
+**When** Admin clicks submit,
+**Then** calls `deliverMilestone(milestoneId, { deliverableUrl, deliveryNote, s3Key: null, fileName: null })` directly (no upload step).
+
+**Given** the form UI,
+**When** file is selected,
+**Then** displays file name + formatted size (e.g. "design-v2.fig — 2.4 MB") below the file input.
+**And** there is an "×" button to deselect the file.
+
+**And** all user-facing strings in `DeliverMilestoneForm.tsx` use `useTranslations('milestone.deliver')` — no hardcoded text (keys from Story 8.8).
+
+**Technical Notes:**
+- File: `src/app/[locale]/(admin)/admin/projects/[id]/_actions.ts`
+- File: `src/app/[locale]/(admin)/admin/projects/[id]/_components/DeliverMilestoneForm.tsx`
+- The S3 presigned PUT URL is called from the browser (`'use client'` component) — NOT from the server action
+- `file.type` may be empty string for some OS/browser combos → fallback to `'application/octet-stream'`
+- i18n keys from Story 8.8 must exist before or alongside this story
+
+---
+
+### Story 8.8: FE — Milestone Card UI Sync + Full i18n
+
+As a developer,
+I want all Epic 8 UI components to use next-intl translations and for the Admin milestone card to match the quality of the rest of the UI,
+So that the app is fully localizable and the Admin experience is visually consistent.
+
+**Root Cause Analysis:**
+- **Duplicate milestone sections**: `page.tsx` renders a standalone Milestone card (lines 88–107) PLUS `ProjectDetailTabs` also renders a "Manage" tab with a simple milestone grid. The standalone card contains Epic 8 delivery/review UI but is visually inconsistent and unintegrated.
+- **Hardcoded strings in 6 components**: `DeliverMilestoneForm`, `ReviewStatusBadge`, `MilestoneReviewHistory`, `MilestoneDeliverable`, `MilestoneReviewForm`, and `ProjectDetailTabs` (inline locale check) all bypass next-intl.
+- **Missing i18n keys**: `en.json` and `vi.json` have no keys for milestone delivery/review vocabulary.
+
+**Acceptance Criteria:**
+
+#### Admin Page — Remove Duplicate Milestone Section
+
+**Given** `src/app/[locale]/(admin)/admin/projects/[id]/page.tsx`,
+**When** updated,
+**Then** the standalone Milestone section (the `<div>` with `h2 "Milestones"`) is **removed** from this file. Milestone delivery/review UI lives exclusively inside `ProjectDetailTabs`.
+
+**Given** `ProjectDetailTabs.tsx` "Manage" tab,
+**When** updated,
+**Then** the simple 2-column grid of milestones is **replaced** with a full milestone list:
+- Each milestone row: milestone name (left) + `ReviewStatusBadge` (right), same row
+- If `reviewStatus === 'PENDING_DELIVERY'` or `'REVISION_REQUESTED'`: render `DeliverMilestoneForm` below the row
+- `MilestoneReviewHistory` renders below each milestone if `reviews.length > 0`
+- Visual style: card rows (`border border-gray-100 rounded-lg p-3`) matching the removed standalone section, but inside the managed tab context
+
+#### i18n Keys — Add to `en.json` and `vi.json`
+
+Add the following nested object under a new top-level key `"milestone"` in both locale files:
+```json
+{
+  "milestone": {
+    "reviewStatus": {
+      "PENDING_DELIVERY": "Awaiting delivery",
+      "PENDING_REVIEW": "Awaiting review",
+      "APPROVED": "Approved",
+      "REVISION_REQUESTED": "Revision requested"
+    },
+    "deliver": {
+      "button": "Deliver milestone",
+      "title": "Deliver milestone",
+      "linkLabel": "Deliverable link",
+      "linkPlaceholder": "https://...",
+      "fileLabel": "Upload file",
+      "noteLabel": "Notes",
+      "notePlaceholder": "Notes for customer (optional)",
+      "validation": "Please provide a URL or file.",
+      "uploading": "Uploading file...",
+      "submitting": "Delivering...",
+      "submit": "Deliver",
+      "cancel": "Cancel",
+      "uploadFailed": "File upload failed. Please try again.",
+      "success": "Milestone delivered and customer notified."
+    },
+    "reviewHistory": {
+      "title": "Review history",
+      "approved": "Approved",
+      "revisionRequested": "Revision requested"
+    },
+    "deliverable": {
+      "viewLink": "View result",
+      "downloadFile": "Download: {fileName}"
+    },
+    "reviewForm": {
+      "title": "Review this milestone:",
+      "approve": "Approve",
+      "requestRevision": "Request revision",
+      "commentLabel": "Reason & revision details",
+      "commentPlaceholder": "Describe revision details in detail...",
+      "commentRequired": "Please provide revision details.",
+      "submit": "Confirm",
+      "submitting": "Submitting...",
+      "approvedSuccess": "Milestone approved.",
+      "revisionSuccess": "Revision request sent.",
+      "revisionExhausted": "Revision request sent. Note: you have used all revisions — this will be reviewed as a special case.",
+      "revisionWarning1": "You have 1 revision remaining. Please describe your requirements fully.",
+      "noRevisionsWarning": "You have used all revisions. This request will be reviewed as a special case — please describe in detail."
+    }
+  }
+}
+```
+
+Vietnamese values for `vi.json`:
+```json
+{
+  "milestone": {
+    "reviewStatus": {
+      "PENDING_DELIVERY": "Chờ giao",
+      "PENDING_REVIEW": "Chờ review",
+      "APPROVED": "Đã duyệt",
+      "REVISION_REQUESTED": "Yêu cầu sửa"
+    },
+    "deliver": {
+      "button": "Giao milestone",
+      "title": "Giao milestone",
+      "linkLabel": "Link kết quả",
+      "linkPlaceholder": "https://...",
+      "fileLabel": "Tải lên file",
+      "noteLabel": "Ghi chú",
+      "notePlaceholder": "Ghi chú cho khách hàng (tùy chọn)",
+      "validation": "Vui lòng cung cấp URL hoặc file deliverable.",
+      "uploading": "Đang tải file...",
+      "submitting": "Đang giao...",
+      "submit": "Giao ngay",
+      "cancel": "Hủy",
+      "uploadFailed": "Tải file thất bại. Vui lòng thử lại.",
+      "success": "Đã giao milestone và thông báo cho khách hàng."
+    },
+    "reviewHistory": {
+      "title": "Lịch sử review",
+      "approved": "Đã phê duyệt",
+      "revisionRequested": "Yêu cầu chỉnh sửa"
+    },
+    "deliverable": {
+      "viewLink": "Xem kết quả",
+      "downloadFile": "Tải file: {fileName}"
+    },
+    "reviewForm": {
+      "title": "Xem xét milestone này:",
+      "approve": "Phê duyệt",
+      "requestRevision": "Yêu cầu chỉnh sửa",
+      "commentLabel": "Lý do & Nội dung yêu cầu chỉnh sửa",
+      "commentPlaceholder": "Mô tả chi tiết yêu cầu chỉnh sửa...",
+      "commentRequired": "Vui lòng nhập nội dung yêu cầu chỉnh sửa.",
+      "submit": "Xác nhận",
+      "submitting": "Đang gửi...",
+      "approvedSuccess": "Đã phê duyệt milestone.",
+      "revisionSuccess": "Đã gửi yêu cầu chỉnh sửa.",
+      "revisionExhausted": "Đã gửi yêu cầu chỉnh sửa. Lưu ý: bạn đã hết số lần chỉnh sửa, lần này sẽ được xem xét đặc biệt.",
+      "revisionWarning1": "Bạn còn 1 lần chỉnh sửa. Hãy mô tả đầy đủ yêu cầu.",
+      "noRevisionsWarning": "Bạn đã dùng hết số lần chỉnh sửa. Lần này sẽ được xem xét đặc biệt — hãy mô tả thật chi tiết."
+    }
+  }
+}
+```
+
+Also add under `"admin"`:
+```json
+"tabs": { "info": "Information", "manage": "Management" }
+```
+Vietnamese: `"tabs": { "info": "Thông tin", "manage": "Quản lý" }`
+
+#### Component Changes
+
+**Given** `ReviewStatusBadge.tsx`,
+**When** updated,
+**Then** add `'use client'` directive and use `useTranslations('milestone.reviewStatus')` to resolve label. Remove hardcoded Vietnamese string map.
+
+**Given** `MilestoneReviewHistory.tsx`,
+**When** updated,
+**Then** add `'use client'` directive and use `useTranslations('milestone.reviewHistory')` for "Lịch sử review", "Đã phê duyệt", "Yêu cầu chỉnh sửa". Date format should use locale from `useLocale()`.
+
+**Given** `MilestoneDeliverable.tsx` (already `'use client'`),
+**When** updated,
+**Then** use `useTranslations('milestone.deliverable')` for "Xem kết quả", "Tải file: {fileName}".
+
+**Given** `MilestoneReviewForm.tsx` (already `'use client'`),
+**When** updated,
+**Then** use `useTranslations('milestone.reviewForm')` for all strings. Hardcoded Vietnamese text is fully replaced.
+
+**Given** `ProjectDetailTabs.tsx`,
+**When** updated,
+**Then** replace the inline `isVi ? 'Thông tin' : 'Information'` / `isVi ? 'Quản lý' : 'Management'` pattern with `t('tabs.info')` and `t('tabs.manage')` using the new keys above. Remove the `isVi` constant.
+
+**Given** `src/app/[locale]/(dashboard)/projects/[id]/page.tsx` (Customer portal),
+**When** inspected,
+**Then** hardcoded strings "Bạn đã sử dụng hết lượt chỉnh sửa.", "Đã phê duyệt", "Đang chờ chỉnh sửa" are replaced with `t(...)` calls using appropriate keys from `milestone.reviewStatus` and `milestone.reviewForm` namespaces.
+
+**And** no component in the codebase contains inline Vietnamese or English milestone-related UI strings after this story is done.
+
+**Technical Notes:**
+- Files changed: `page.tsx` (admin), `ProjectDetailTabs.tsx`, `ReviewStatusBadge.tsx`, `MilestoneReviewHistory.tsx`, `MilestoneDeliverable.tsx`, `MilestoneReviewForm.tsx`, `en.json`, `vi.json`, customer `projects/[id]/page.tsx`
+- `ReviewStatusBadge` becomes a Client Component — acceptable since it renders a color badge that is always interactive context
+- `MilestoneReviewHistory` becomes Client Component — acceptable for same reason
+- next-intl `useTranslations` requires `'use client'` OR a server component using `getTranslations` (async). For leaf badge components, Client Component is simpler
+- After this story, `status.status` duplicate nesting in locale files (currently present at `vi.json:141`) should be cleaned up as a follow-on
