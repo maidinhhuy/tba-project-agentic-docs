@@ -103,10 +103,10 @@ development_status:
   epic-8-retrospective: optional
 
   # ── Epic 9: Customer Portal UX Enhancement & Edit Project ─────────────────
-  epic-9: in-progress
-  9-1-be-edit-project-api: ready-for-dev    # BE: PATCH /api/v1/customer/projects/{id} — partial update, tenant isolation
-  9-2-fe-milestone-stepper: ready-for-dev   # FE Customer: horizontal stepper (circle 48/56px, connector, expand panel, accordion)
-  9-3-fe-project-detail-header: ready-for-dev  # FE Customer: collapsible description, reference link, edit button, revision counter in header
-  9-4-fe-edit-project-page: ready-for-dev   # FE Customer: /[locale]/projects/[id]/edit — pre-populated form, locale-aware redirect
-  9-5-fe-admin-collapsible-desc: ready-for-dev  # FE Admin: reuse CollapsibleDescription component in Tab "Thông tin"
+  epic-9: done
+  9-1-be-edit-project-api: done    # BE: PATCH /api/v1/customer/projects/{id} — partial update, tenant isolation
+  9-2-fe-milestone-stepper: done   # FE Customer: horizontal stepper (circle 48/56px, connector, expand panel, accordion)
+  9-3-fe-project-detail-header: done  # FE Customer: collapsible description, reference link, edit button, revision counter in header
+  9-4-fe-edit-project-page: done   # FE Customer: /[locale]/projects/[id]/edit — pre-populated form, locale-aware redirect
+  9-5-fe-admin-collapsible-desc: done  # FE Admin: reuse CollapsibleDescription component in Tab "Thông tin"
   epic-9-retrospective: optional
