@@ -419,32 +419,41 @@ jOOQ hỗ trợ optimistic locking built-in. Tránh lost updates khi Admin và C
 
 ---
 
-### AD-12: Account Creation Flow — Self-Registration
+### AD-12: Account Creation Flow — Self-Registration with Email Verification
 
-**Quyết định:** Public `/register` endpoint (`permitAll()`). Customer tự đăng ký và đăng nhập trực tiếp (không cần xác thực email).
+**Quyết định:** Public `/register` endpoint (`permitAll()`). Customer tự đăng ký — tài khoản chỉ được activate sau khi xác nhận email.
 
-**Thay đổi (2026-06-13):** Email verification tạm thời bỏ qua. User được tạo với `is_active=true`, `is_email_verified=true` ngay khi đăng ký.
+**Lịch sử:** Email verification tạm thời bị bỏ qua (2026-06-13, Story 2.3) để unblock development. Epic 6 (Story 6.1) khôi phục lại flow đầy đủ.
 
-**Không chọn:** ~~Admin-only account creation~~ (quyết định ban đầu — đã đổi sau Party Mode review).
+**Không chọn:** ~~Admin-only account creation~~ (đã đổi sau Party Mode review). ~~Immediate activation without email~~ (tạm thời, đã revert).
 
-**Lý do bỏ email verification (tạm thời):** Đơn giản hoá flow đăng ký để unblock development. Email verification có thể bật lại sau khi hệ thống core hoàn chỉnh.
+**Flow hiện tại (sau Epic 6 Story 6.1):**
+1. Customer `POST /api/auth/register` → tạo account với `is_active=false`, `is_email_verified=false`
+2. Server gửi email verification qua Resend (async, fire-and-forget)
+3. Customer click link `GET /api/auth/verify-email?token={token}` → `is_email_verified=true`, `is_active=true`
+4. Customer có thể đăng nhập
 
-**Flow hiện tại:**
-1. Customer `POST /api/auth/register` → tạo account với `is_active=true`, `is_email_verified=true`
-2. Customer có thể đăng nhập ngay
+**Resend verification:** `POST /api/auth/resend-verification` → gửi lại email nếu token đã hết hạn.
 
-~~**Flow cũ (đã bỏ tạm thời):**~~
-~~1. `POST /api/auth/register` → `is_active=false`, `is_email_verified=false`~~
-~~2. Email verification gửi tới customer~~
-~~3. Customer click link → `is_email_verified=true`, `is_active=true`~~
+**Login guard:** Nếu `is_email_verified=false` → HTTP 403 với error code `EMAIL_NOT_VERIFIED`.
+
+**Change password:** `POST /api/auth/change-password` với body `{ oldPassword, newPassword }` → verify BCrypt, hash mới, revoke all refresh tokens.
 
 **SecurityConfig:**
 ```java
 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-// Removed: /api/auth/verify-email, /api/auth/resend-verification
+.requestMatchers(HttpMethod.GET, "/api/auth/verify-email").permitAll()
+.requestMatchers(HttpMethod.POST, "/api/auth/resend-verification").permitAll()
+.requestMatchers(HttpMethod.POST, "/api/auth/change-password").authenticated()
 ```
 
-**Adaptation từ template:** `RegisterUserService` dùng nguyên từ `template/` với điều chỉnh: bỏ `EmailVerificationService`, user immediate activation.
+**Ports bổ sung (Core):**
+- `VerifyEmailUseCase` (port/in) — xác nhận token
+- `ResendVerificationUseCase` (port/in) — gửi lại email
+- `ChangePasswordUseCase` (port/in) — đổi mật khẩu
+- `EmailVerificationRepository` (port/out) — CRUD `email_verifications` table (đã có trong V1 schema)
+
+**Exception types bổ sung:** `EMAIL_NOT_VERIFIED`, `INVALID_VERIFICATION_TOKEN`, `TOKEN_EXPIRED`, `WRONG_PASSWORD`
 
 ---
 

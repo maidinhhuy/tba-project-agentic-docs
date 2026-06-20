@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-06-19"
-last_updated: "2026-06-19T(story-5.1-added)"
+last_updated: "2026-06-20T(epic-8-created)"
 project: AI-driven
 project_key: NOKEY
 tracking_system: file-system
@@ -52,9 +52,9 @@ development_status:
   epic-1-retrospective: optional
 
   # ── Epic 2: Authentication & Self-Registration ────────────────────────────
-  epic-2: in-progress
+  epic-2: done
   2-1-jwt-auth-backend: done               # story file: 2-1-simple-login-backend.md
-  2-2-email-infrastructure: ready-for-dev  # story file: 2-2-email-infrastructure.md
+  2-2-email-infrastructure: done           # story file: 2-2-email-infrastructure.md — ResendEmailClient + DevEmailClient (PR#76)
   2-3-self-registration: done              # story file: 2-3-backend-self-registration.md
   2-4-auth-ui: done
   2-5-rbac-route-protection: done
@@ -68,13 +68,33 @@ development_status:
   epic-3-retrospective: optional
 
   # ── Epic 4: Admin Dashboard ───────────────────────────────────────────────
-  epic-4: in-progress
+  epic-4: done
   4-1-admin-project-table: done
   4-2-status-update-progress-note: done
   4-3-milestone-management: done
   epic-4-retrospective: optional
 
   # ── Epic 5: Infrastructure Hardening ─────────────────────────────────────
-  epic-5: in-progress
-  5-1-transactional-service-layer: ready-for-dev  # story file: 5-1-transactional-service-layer.md
+  epic-5: done
+  5-1-transactional-service-layer: done  # story file: 5-1-transactional-service-layer.md — @Transactional trên 12 services (PR#75)
   epic-5-retrospective: optional
+
+  # ── Epic 6: Authentication Enhancement ───────────────────────────────────
+  epic-6: done
+  6-1-email-verification-flow: done     # story file: 6-1-email-verification-flow.md
+  6-2-change-password: done             # story file: 6-2-change-password.md — BE+FE: change password with old password auth, revoke refresh tokens
+  epic-6-retrospective: optional
+
+  # ── Epic 7: UI Bug Fixes ──────────────────────────────────────────────────
+  epic-7: done
+  7-1-admin-project-detail-missing-fields: done  # story file: 7-1-admin-project-detail-missing-fields.md — FE-only: hiển thị description + reference trong Admin Project Detail
+  epic-7-retrospective: optional
+
+  # ── Epic 8: Milestone Delivery & Customer Review ──────────────────────────
+  epic-8: in-progress
+  8-1-db-migration-s3-infrastructure: ready-for-dev   # BE: V2 migration (milestone delivery columns + milestone_reviews table) + S3 FileStoragePort/Adapter
+  8-2-admin-deliver-milestone-api: ready-for-dev       # BE: POST deliver endpoint + auto AWAITING_REVIEW transition + email customer
+  8-3-customer-review-api-state-machine: ready-for-dev # BE: POST review (approve/revision) + state machine + email admin + presigned URL download
+  8-4-fe-admin-deliver-form-review-history: ready-for-dev  # FE Admin: form giao milestone + review history timeline
+  8-5-fe-customer-deliverable-review-form: ready-for-dev   # FE Customer: xem deliverable + approve/revision form + revision warnings
+  epic-8-retrospective: optional

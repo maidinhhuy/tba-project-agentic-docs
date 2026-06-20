@@ -811,3 +811,446 @@ So that I can reflect actual delivery progress without being constrained by the 
 
 **And** Milestone change không trigger email notification (FR-12).
 **And** Milestone update không phụ thuộc vào project status — có thể thực hiện ở bất kỳ project status nào.
+
+---
+
+## Epic 6: Authentication Enhancement — Email Verification & Password Management
+
+**Goal:** Hoàn thiện authentication flow: bắt buộc xác nhận email khi đăng ký và cho phép Customer đổi mật khẩu.
+
+**Scope:** Restore email verification (revert AD-12 temporary skip), add resend verification, add change password.
+
+**Dependencies:** Epic 2 (auth infrastructure), Story 2.2 (email infrastructure/Resend), Story 5.1 (transactional email service).
+
+---
+
+### Story 6.1: Email Verification Flow (BE + FE)
+
+As a new Customer,
+I want to verify my email address before my account is activated,
+So that the system ensures only valid email owners can register and log in.
+
+**Acceptance Criteria:**
+
+#### Backend
+
+**Given** `POST /api/auth/register` với valid payload,
+**When** request được xử lý,
+**Then** user được tạo với `is_active=false`, `is_email_verified=false`. Một verification token được lưu vào `email_verifications` table (TTL 24h). Email verification được gửi async qua Resend. Response trả về HTTP 201.
+
+**Given** `GET /api/auth/verify-email?token={token}`,
+**When** token tồn tại và chưa hết hạn,
+**Then** user được update `is_email_verified=true`, `is_active=true`. Token được đánh dấu used. Trả về HTTP 200.
+
+**Given** `GET /api/auth/verify-email?token={token}`,
+**When** token không tồn tại hoặc đã used,
+**Then** trả về HTTP 400 với error code `INVALID_VERIFICATION_TOKEN`.
+
+**Given** `GET /api/auth/verify-email?token={token}`,
+**When** token đã hết hạn (>24h),
+**Then** trả về HTTP 400 với error code `TOKEN_EXPIRED`.
+
+**Given** `POST /api/auth/login` với email chưa verified,
+**When** password đúng nhưng `is_email_verified=false`,
+**Then** trả về HTTP 403 với error code `EMAIL_NOT_VERIFIED`.
+
+**Given** `POST /api/auth/resend-verification` với body `{ email }`,
+**When** email tồn tại và chưa verified,
+**Then** tạo token mới (invalidate token cũ), gửi email mới. Trả về HTTP 200.
+
+**Given** `POST /api/auth/resend-verification`,
+**When** email đã verified hoặc không tồn tại,
+**Then** trả về HTTP 200 (không leak thông tin — same response).
+
+**Given** SecurityConfig,
+**Then** các endpoint sau là `permitAll()`: `POST /api/auth/register`, `GET /api/auth/verify-email`, `POST /api/auth/resend-verification`.
+
+#### Frontend
+
+**Given** Customer submit form đăng ký thành công,
+**When** Server Action nhận HTTP 201 từ backend,
+**Then** redirect sang trang `/register/success` với message "Vui lòng kiểm tra email để xác nhận tài khoản."
+
+**Given** Customer click link xác nhận trong email,
+**When** `GET /verify-email?token={token}` được load,
+**Then** Next.js page gọi Server Action verify token. Thành công → redirect `/login` với toast "Email đã được xác nhận. Bạn có thể đăng nhập." Thất bại (invalid/expired) → hiện trang lỗi với nút "Gửi lại email xác nhận".
+
+**Given** Customer click "Gửi lại email xác nhận",
+**When** Server Action `resendVerificationAction` gọi `POST /api/auth/resend-verification`,
+**Then** hiện toast "Email xác nhận đã được gửi lại. Kiểm tra hộp thư của bạn."
+
+**Given** Customer đăng nhập với tài khoản chưa xác nhận email,
+**When** backend trả về 403 `EMAIL_NOT_VERIFIED`,
+**Then** FE hiển thị message "Vui lòng xác nhận email trước khi đăng nhập." kèm link "Gửi lại email xác nhận".
+
+**Technical Notes:**
+- `email_verifications` table đã có trong V1 schema — không cần migration mới
+- Token: UUID, lưu bcrypt hash (optional), TTL 24h
+- Email template: subject "Xác nhận email TBA", link `{FRONTEND_BASE_URL}/verify-email?token={token}`
+- `ResendEmailClient` đã live (Story 2.2) — chỉ cần implement `VerifyEmailUseCase`, `ResendVerificationUseCase`
+
+---
+
+### Story 6.2: Change Password (BE + FE)
+
+As a Customer,
+I want to change my password by providing my current password for authentication,
+So that I can update my credentials securely without requiring admin intervention.
+
+**Acceptance Criteria:**
+
+#### Backend
+
+**Given** `POST /api/auth/change-password` với body `{ oldPassword, newPassword }` và Bearer token hợp lệ,
+**When** `oldPassword` match BCrypt hash hiện tại,
+**Then** hash password mới, update `password_hash` trong DB. Revoke tất cả refresh tokens của user (force re-login trên tất cả devices). Trả về HTTP 200.
+
+**Given** `POST /api/auth/change-password`,
+**When** `oldPassword` không match,
+**Then** trả về HTTP 400 với error code `WRONG_PASSWORD`.
+
+**Given** `POST /api/auth/change-password`,
+**When** `newPassword` không đủ mạnh (< 8 ký tự, thiếu uppercase/number),
+**Then** trả về HTTP 400 với error code `WEAK_PASSWORD` và validation message.
+
+**Given** `POST /api/auth/change-password`,
+**When** không có Bearer token hoặc token hết hạn,
+**Then** trả về HTTP 401.
+
+**Given** SecurityConfig,
+**Then** `POST /api/auth/change-password` yêu cầu `authenticated()`.
+
+#### Frontend
+
+**Given** Customer navigate tới trang `/profile` (hoặc `/settings`),
+**When** page load,
+**Then** hiện form "Đổi mật khẩu" với 3 fields: Current Password, New Password, Confirm New Password.
+
+**Given** Customer submit form đổi mật khẩu,
+**When** Confirm New Password không match New Password,
+**Then** client-side validation hiện lỗi "Mật khẩu xác nhận không khớp." Không gọi Server Action.
+
+**Given** form hợp lệ được submit,
+**When** Server Action `changePasswordAction` gọi `POST /api/auth/change-password`,
+**Then** button đổi thành "Đang xử lý…" và disabled.
+
+**Given** backend trả về HTTP 200,
+**When** Server Action nhận response,
+**Then** toast success "Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại." Sau 2 giây, logout và redirect `/login`.
+
+**Given** backend trả về 400 `WRONG_PASSWORD`,
+**When** Server Action nhận response,
+**Then** hiện lỗi "Mật khẩu hiện tại không đúng." trên field Current Password.
+
+**Given** backend trả về 400 `WEAK_PASSWORD`,
+**When** Server Action nhận response,
+**Then** hiện lỗi validation trên field New Password.
+
+**Technical Notes:**
+- Route: `/[locale]/(dashboard)/profile/page.tsx` (authenticated route, reuse existing layout)
+- Server Action: `changePasswordAction` trong `src/app/[locale]/(dashboard)/profile/actions.ts`
+- Sau khi đổi mật khẩu thành công → gọi `signOut()` (NextAuth) và redirect `/login`
+- Password strength validation: đồng bộ rule FE và BE (≥8 ký tự, ≥1 uppercase, ≥1 số)
+
+---
+
+## Epic 7: UI Bug Fixes
+
+Khắc phục các bug UI nhỏ phát sinh sau khi hoàn thành các epic chính. Các fix này không thay đổi business logic hay BE, chỉ cải thiện tính đúng đắn và đầy đủ của giao diện.
+
+**FRs covered:** Không có FR mới — đây là bug fix cho FR-9 (Admin project table/detail)
+
+---
+
+### Story 7.1: Admin Project Detail — Hiển thị Description và Reference URL
+
+As an admin,
+I want to see the project's description and reference URL on the Admin Project Detail page,
+So that I have complete project context without having to ask the customer.
+
+**Root Cause (đã xác nhận qua code review):**
+- BE: `AdminProjectDetailResponse` đã trả về `description` và `reference` — API đúng
+- FE: TypeScript interface `AdminProjectDetail` trong `page.tsx` thiếu 2 field này; page không render chúng
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/v1/admin/projects/{id}` trả về response có `description` và `reference`,
+**When** Admin load `/admin/projects/{id}`,
+**Then** TypeScript interface `AdminProjectDetail` trong `page.tsx` phải có `description: string | null` và `reference: string | null`.
+
+**Given** project có `description` (không null),
+**When** Admin xem Admin Project Detail page,
+**Then** render một card "Thông tin dự án" hiển thị `description` dưới dạng text thuần, đặt sau Project Header Card và trước UpdateStatusForm.
+
+**Given** project có `reference` (không null, không rỗng),
+**When** Admin xem Admin Project Detail page,
+**Then** card "Thông tin dự án" hiển thị `reference` dưới dạng hyperlink có `target="_blank" rel="noopener noreferrer"`, label "Tài liệu tham khảo".
+
+**Given** `description` là null hoặc rỗng,
+**When** Admin xem Admin Project Detail page,
+**Then** không render description section (không hiện label rỗng).
+
+**Given** `reference` là null hoặc rỗng,
+**When** Admin xem Admin Project Detail page,
+**Then** không render reference section (không hiện label rỗng).
+
+**Given** cả `description` và `reference` đều null,
+**When** Admin xem Admin Project Detail page,
+**Then** không render card "Thông tin dự án" (toàn bộ card ẩn).
+
+**Technical Notes:**
+- File cần sửa: `src/app/[locale]/(admin)/admin/projects/[id]/page.tsx`
+- Chỉ sửa FE — KHÔNG sửa BE
+- Style: cùng pattern với các card hiện có (`.bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm`)
+- `productType` đã có trong response — có thể hiển thị cùng card nếu phù hợp UX
+
+---
+
+## Epic 8: Milestone Delivery & Customer Review
+
+**Goal:** Sau mỗi milestone hoàn thành, Admin giao kết quả (link + file) cho Customer xem. Customer có thể chấp nhận hoặc yêu cầu chỉnh sửa có kèm feedback. Milestone cuối được chấp nhận → project tự chuyển DELIVERED.
+
+**FRs covered:** FR-7 (project detail — revision counter có ý nghĩa thực), FR-8 (activity feed — thêm review events), FR-10 (state machine — transitions mới từ AWAITING_REVIEW), FR-15 (email notification — extend cho review events)
+
+**New state machine transitions:**
+- `IN_DEVELOPMENT → AWAITING_REVIEW` — triggered khi Admin giao milestone (đã có, nay tự động)
+- `AWAITING_REVIEW → IN_DEVELOPMENT` — triggered khi Customer approve milestone giữa (mới)
+- `AWAITING_REVIEW → DELIVERED` — triggered khi Customer approve milestone cuối (mới)
+
+**Dependencies:** Epic 2 (auth), Epic 3 (customer portal), Epic 4 (admin dashboard), Story 2.2 (email), Story 5.1 (transactional)
+
+---
+
+### Story 8.1: DB Migration V2 + S3 File Storage Infrastructure
+
+As a developer,
+I want the database extended with milestone delivery/review columns and a milestone_reviews history table, and S3 file storage wired up as a port/adapter,
+So that all subsequent Epic 8 stories have a stable data and storage foundation to build on.
+
+**Acceptance Criteria:**
+
+**Given** Flyway V2 migration chạy,
+**When** `./gradlew flywayMigrate` executes,
+**Then** migration `V2__milestone_delivery.sql` hoàn thành không lỗi.
+
+**Given** migration chạy xong,
+**When** schema được inspect,
+**Then** bảng `milestones` có thêm các columns:
+- `deliverable_url TEXT` — link demo/figma/staging (nullable)
+- `deliverable_file_key TEXT` — S3 object key (nullable)
+- `deliverable_file_name TEXT` — tên file gốc để hiển thị (nullable)
+- `delivery_note TEXT` — ghi chú Admin khi giao (nullable)
+- `delivered_at TIMESTAMPTZ` — thời điểm giao (nullable)
+- `review_status VARCHAR(30) NOT NULL DEFAULT 'PENDING_DELIVERY'` — CHECK IN ('PENDING_DELIVERY','PENDING_REVIEW','APPROVED','REVISION_REQUESTED')
+
+**And** bảng mới `milestone_reviews` tồn tại với columns:
+- `id UUID PK DEFAULT gen_random_uuid()`
+- `milestone_id BIGINT NOT NULL FK→milestones(milestone_id) ON DELETE CASCADE`
+- `action VARCHAR(30) NOT NULL` — CHECK IN ('APPROVED','REVISION_REQUESTED')
+- `comment TEXT` — bắt buộc khi action=REVISION_REQUESTED
+- `reviewed_by BIGINT REFERENCES users(user_id)`
+- `reviewed_at TIMESTAMPTZ DEFAULT now()`
+
+**And** indexes: `idx_milestone_reviews_milestone_id`.
+
+**Given** S3 configuration,
+**When** app khởi động với env vars `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET_NAME`,
+**Then** `S3FileStorageAdapter` implements `FileStoragePort` (core/port/out) khởi động không lỗi.
+
+**Given** `FileStoragePort.upload(fileName, contentType, inputStream)` được gọi,
+**When** upload thành công,
+**Then** trả về `fileKey` (String) — dạng `deliverables/{projectId}/{milestoneId}/{uuid}-{fileName}`.
+
+**Given** `FileStoragePort.generatePresignedUrl(fileKey, ttlMinutes)` được gọi,
+**When** fileKey tồn tại,
+**Then** trả về URL presigned hợp lệ với TTL = `ttlMinutes`.
+
+**And** `FileStoragePort` interface nằm ở `core/port/out/`, `S3FileStorageAdapter` nằm ở `infrastructure/storage/`.
+**And** `.env.local` template thêm: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET_NAME`.
+**And** jOOQ codegen chạy lại sau migration — generated classes cho `milestone_reviews` tồn tại.
+
+---
+
+### Story 8.2: BE Admin — Deliver Milestone API
+
+As an admin,
+I want to deliver a milestone by attaching a link and/or file upload along with a delivery note,
+So that the customer is notified and can review the result immediately.
+
+**Acceptance Criteria:**
+
+**Given** `POST /api/v1/admin/projects/{id}/milestones/{milestoneId}/deliver` với `multipart/form-data`: `deliverableUrl` (optional String), `deliveryNote` (optional String), `file` (optional binary),
+**When** milestone có `status=ACTIVE` và project thuộc về `{id}`,
+**Then** trả về HTTP 200. Milestone được update: `deliverable_url`, `deliverable_file_key` (nếu có file → upload S3 → lưu key), `deliverable_file_name`, `delivery_note`, `delivered_at=now()`, `review_status=PENDING_REVIEW`.
+
+**Given** cả `deliverableUrl` và `file` đều null/empty,
+**When** gửi request,
+**Then** trả về HTTP 400 với error `"VALIDATION_FAILED"` — phải có ít nhất 1 trong 2.
+
+**Given** file được upload,
+**When** file > 50MB,
+**Then** trả về HTTP 400 với error `"FILE_TOO_LARGE"`.
+
+**Given** deliver thành công,
+**When** `review_status` chuyển sang `PENDING_REVIEW`,
+**Then** project status tự động chuyển sang `AWAITING_REVIEW` (trong cùng transaction).
+**And** `project_status_history` có record: `previous_status=IN_DEVELOPMENT`, `new_status=AWAITING_REVIEW`, `changed_by=<admin_email>`, `reason="Milestone {name} đã hoàn thành và sẵn sàng để review."`.
+
+**Given** email notification,
+**When** deliver thành công,
+**Then** `EmailClient.send()` được gọi async đến customer email, subject "Kết quả milestone đã sẵn sàng: {milestoneName}", body gồm: tên Project, tên Milestone, delivery note (nếu có), link `/projects/{id}`.
+**And** email failure không block response.
+
+**And** endpoint yêu cầu `hasRole("ADMIN")`.
+**And** nếu milestone không thuộc project `{id}` → HTTP 404.
+
+---
+
+### Story 8.3: BE Customer — Review API + State Machine
+
+As a customer,
+I want to approve or request revision for a delivered milestone with a comment,
+So that the agency knows exactly what to fix and the project lifecycle progresses correctly.
+
+**Acceptance Criteria:**
+
+**Given** `POST /api/v1/customer/projects/{id}/milestones/{milestoneId}/review` với body `{ action: "APPROVE" }`,
+**When** milestone có `review_status=PENDING_REVIEW` và project thuộc Customer đang đăng nhập,
+**Then** trả về HTTP 200. Record mới trong `milestone_reviews`: `action=APPROVED`, `reviewed_by=customer_id`, `reviewed_at=now()`. Milestone `review_status=APPROVED`.
+
+**Given** Customer approve và còn milestone tiếp theo (position + 1),
+**When** request được xử lý,
+**Then** milestone tiếp theo chuyển `status=ACTIVE`, `review_status=PENDING_DELIVERY`. Project status chuyển `IN_DEVELOPMENT`. `project_status_history` có record tương ứng.
+
+**Given** Customer approve và đây là milestone cuối (không còn milestone nào có position lớn hơn),
+**When** request được xử lý,
+**Then** project status chuyển `DELIVERED`. `project_status_history` có record: `new_status=DELIVERED`, `changed_by=<customer_email>`, `reason="Customer đã chấp nhận milestone cuối."`.
+**And** Admin nhận email async: subject "Dự án {projectName} đã hoàn thành", body gồm tên Customer, tên Project, link admin detail.
+
+**Given** `POST /api/v1/customer/projects/{id}/milestones/{milestoneId}/review` với body `{ action: "REQUEST_REVISION", comment: "..." }`,
+**When** milestone có `review_status=PENDING_REVIEW`,
+**Then** trả về HTTP 200. Record mới trong `milestone_reviews`: `action=REVISION_REQUESTED`, `comment=comment`, `reviewed_by`, `reviewed_at`. Milestone `review_status=REVISION_REQUESTED`.
+
+**Given** `action=REQUEST_REVISION` mà `comment` null hoặc blank,
+**When** gửi request,
+**Then** trả về HTTP 400 với error `"VALIDATION_FAILED"` — comment bắt buộc.
+
+**Given** `action=REQUEST_REVISION` và `project.revision_count > 0`,
+**When** xử lý,
+**Then** `revision_count - 1`. Project status chuyển `IN_REVISION`. `project_status_history` có record tương ứng.
+
+**Given** `action=REQUEST_REVISION` và `project.revision_count = 0`,
+**When** xử lý,
+**Then** `revision_count` giữ nguyên 0. Project status chuyển `IN_REVISION` (override — không block). `project_status_history` có record với `reason` ghi rõ "Extra revision requested".
+
+**Given** revision request thành công,
+**When** xử lý xong,
+**Then** Admin nhận email async: subject "Yêu cầu chỉnh sửa: {projectName}", body gồm tên Milestone, tên Customer, comment đầy đủ, link `/admin/projects/{id}`.
+**And** email failure không block response.
+
+**Given** `GET /api/v1/customer/projects/{id}/milestones/{milestoneId}/deliverable`,
+**When** milestone có `deliverable_file_key` (có file upload),
+**Then** trả về HTTP 302 redirect đến presigned S3 URL với TTL 30 phút.
+
+**Given** `GET /api/v1/admin/projects/{id}` (extend response hiện có),
+**When** Admin gọi endpoint,
+**Then** mỗi milestone trong response có thêm field `reviews: List<MilestoneReviewResponse>` — sorted `reviewed_at DESC`. Mỗi item: `id`, `action`, `comment`, `reviewedAt`.
+
+**And** tất cả customer endpoints enforce tenant isolation — Customer chỉ review project của chính mình.
+
+---
+
+### Story 8.4: FE Admin — Form Giao Milestone + Review History
+
+As an admin,
+I want a delivery form on each active milestone and a review history timeline,
+So that I can share results with customers and track all their feedback in one place.
+
+**Acceptance Criteria:**
+
+**Given** Admin load `/admin/projects/{id}`,
+**When** milestone có `status=ACTIVE` và `review_status=PENDING_DELIVERY`,
+**Then** hiện button "Giao milestone" trên milestone row đó.
+
+**Given** Admin click "Giao milestone",
+**When** modal/sheet mở,
+**Then** render form gồm:
+- Input "Link kết quả" (URL, optional, placeholder "https://...")
+- File upload dropzone (optional, max 50MB, hiện tên file sau khi chọn)
+- Textarea "Ghi chú cho khách hàng" (optional)
+- Submit button "Giao ngay"
+- Validation: phải có ít nhất 1 trong 2 (link hoặc file) trước khi enable Submit.
+
+**Given** Admin submit form hợp lệ,
+**When** Server Action `deliverMilestoneAction` đang xử lý,
+**Then** button đổi thành "Đang giao…" và disabled.
+
+**Given** deliver thành công,
+**When** Server Action trả về 200,
+**Then** modal đóng, toast success "Đã giao milestone và thông báo cho khách hàng." Page revalidate — milestone badge đổi sang "Đang chờ review".
+
+**Given** deliver thất bại,
+**When** Server Action trả về lỗi,
+**Then** toast destructive. Form giữ nguyên dữ liệu.
+
+**Given** milestone có `review_status` không phải `PENDING_DELIVERY`,
+**When** Admin xem milestone row,
+**Then** hiện badge trạng thái: "Đang chờ review" (PENDING_REVIEW), "Đã chấp nhận" (APPROVED), "Yêu cầu chỉnh sửa" (REVISION_REQUESTED).
+
+**Given** Admin xem Admin Project Detail page,
+**When** milestone có `reviews` array không rỗng,
+**Then** mỗi milestone row có expandable "Lịch sử review" — timeline gồm các entries:
+- APPROVED: icon check xanh + "Khách hàng đã chấp nhận" + `reviewedAt`
+- REVISION_REQUESTED: icon warning đỏ + comment đầy đủ + `reviewedAt`
+
+**And** file upload dùng `<input type="file">` với `encType="multipart/form-data"` — Server Action forward multipart đến Spring Boot.
+
+---
+
+### Story 8.5: FE Customer — Xem Deliverable + Form Review
+
+As a customer,
+I want to see the delivered result for each milestone and submit my approval or revision request with feedback,
+So that I can clearly communicate what I want changed and track the project towards completion.
+
+**Acceptance Criteria:**
+
+**Given** Customer load `/projects/{id}`,
+**When** milestone có `review_status=PENDING_REVIEW`,
+**Then** milestone row hiện section "Kết quả milestone" gồm:
+- Nếu có `deliverable_url`: button "Xem kết quả" → `target="_blank"` mở link
+- Nếu có file: button "Tải xuống" → gọi Server Action `downloadDeliverableAction` → redirect presigned URL
+- Nếu có `delivery_note`: text note của Admin
+- Form review: button "Chấp nhận" + button "Yêu cầu chỉnh sửa"
+
+**Given** Customer click "Yêu cầu chỉnh sửa",
+**When** button được click,
+**Then** expand textarea "Mô tả yêu cầu chỉnh sửa *" (bắt buộc) + nút "Gửi yêu cầu". Button "Gửi yêu cầu" disabled cho đến khi textarea có nội dung.
+
+**Given** `project.revision_count = 1`,
+**When** Customer xem form review,
+**Then** hiện cảnh báo vàng: "Bạn còn 1 lần chỉnh sửa. Hãy mô tả đầy đủ yêu cầu."
+
+**Given** `project.revision_count = 0`,
+**When** Customer xem form review,
+**Then** hiện cảnh báo đỏ: "Bạn đã dùng hết số lần chỉnh sửa. Lần này sẽ được xem xét đặc biệt — hãy mô tả thật chi tiết."
+
+**Given** Customer submit "Chấp nhận",
+**When** Server Action `reviewMilestoneAction` thành công,
+**Then** toast success "Đã chấp nhận milestone." Page revalidate. Nếu milestone cuối: toast thêm "Dự án đã hoàn thành!". Project status badge đổi tương ứng.
+
+**Given** Customer submit "Gửi yêu cầu" (revision),
+**When** Server Action thành công,
+**Then** toast success "Đã gửi yêu cầu chỉnh sửa." Page revalidate. Project status badge đổi sang IN_REVISION.
+
+**Given** submit thất bại,
+**When** Server Action trả về lỗi,
+**Then** toast destructive. Form giữ nguyên dữ liệu (comment không bị clear).
+
+**Given** milestone có `review_status=APPROVED`,
+**When** Customer xem milestone row,
+**Then** milestone hiện badge "Đã chấp nhận" (green). Không hiện form review.
+
+**Given** milestone có `review_status=REVISION_REQUESTED`,
+**When** Customer xem milestone row,
+**Then** milestone hiện badge "Đang chỉnh sửa". Không hiện form review (đang chờ Admin giao lại).
