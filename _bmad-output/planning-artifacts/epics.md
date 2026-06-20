@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 9]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-AI-driven-2026-06-11/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture.md
@@ -1550,3 +1550,266 @@ Vietnamese: `"tabs": { "info": "Thông tin", "manage": "Quản lý" }`
 - `MilestoneReviewHistory` becomes Client Component — acceptable for same reason
 - next-intl `useTranslations` requires `'use client'` OR a server component using `getTranslations` (async). For leaf badge components, Client Component is simpler
 - After this story, `status.status` duplicate nesting in locale files (currently present at `vi.json:141`) should be cleaned up as a follow-on
+
+---
+
+## Epic 9: Customer Portal UX Enhancement & Edit Project
+
+**Epic Goal:** Customer có thể tự chỉnh sửa thông tin project của mình, theo dõi tiến độ milestone qua stepper trực quan theo chiều ngang, và đọc nội dung dự án qua UI gọn gàng với collapsible description.
+
+**UX Requirements covered:** UX-NEW-1 (horizontal milestone stepper), UX-NEW-2 (collapsible description), UX-NEW-3 (reference external link), UX-NEW-4 (edit button in header), UX-NEW-5 (revision counter in header), UX-NEW-6 (admin Tab "Thông tin" collapsible description), FR-NEW-1 (customer edit project)
+
+**Locale Rule (tất cả FE stories):** Mọi route và navigation trong FE phải dùng locale-prefix theo next-intl convention — không hardcode path không có locale. Server components dùng `getLocale()` từ `next-intl/server`; client components dùng `useParams()`. Link components ưu tiên dùng locale-aware `Link` từ `@/i18n/navigation` nếu project export sẵn.
+
+---
+
+### Story 9.1: BE — Edit Project API (PATCH)
+
+As a customer,
+I want to update my project's name, description, and reference link via API,
+So that I can correct or improve project information after submission.
+
+**Acceptance Criteria:**
+
+**Given** Customer đã đăng nhập và gọi `PATCH /api/v1/customer/projects/{id}`,
+**When** request body chứa một hoặc nhiều fields: `name`, `description`, `reference`,
+**Then** chỉ các fields được gửi trong body mới được update (partial update semantics); fields không có trong body giữ nguyên giá trị hiện tại.
+**And** response trả về HTTP 200 với project object đã được update.
+
+**Given** Customer A gọi `PATCH /api/v1/customer/projects/{id}` với `id` là project của Customer B,
+**When** request được xử lý,
+**Then** response trả về HTTP 403 Forbidden (tenant isolation — không tiết lộ project tồn tại hay không).
+
+**Given** `name` được gửi trong body,
+**When** `name` rỗng hoặc dài hơn 100 ký tự,
+**Then** response trả về HTTP 400 với validation error message cụ thể cho field `name`.
+
+**Given** `description` được gửi trong body,
+**When** `description` có độ dài < 50 ký tự hoặc > 2000 ký tự,
+**Then** response trả về HTTP 400 với validation error message cụ thể cho field `description`.
+
+**Given** `reference` được gửi trong body,
+**When** `reference` dài hơn 500 ký tự,
+**Then** response trả về HTTP 400 với validation error message cụ thể cho field `reference`.
+
+**Given** `reference` được gửi với giá trị `null` hoặc chuỗi rỗng,
+**When** request được xử lý,
+**Then** field `reference` của project được set về `null` (customer xoá reference link).
+
+**Given** project không tồn tại (id không hợp lệ),
+**When** Customer gọi `PATCH /api/v1/customer/projects/{id}`,
+**Then** response trả về HTTP 404.
+
+**Technical Notes:**
+- Endpoint: `PATCH /api/v1/customer/projects/{id}`
+- Chỉ cho phép update 3 fields: `name`, `description`, `reference` — các fields khác (status, milestones, revision_count) là immutable qua endpoint này
+- Không có restriction nào dựa trên project status — customer được phép edit bất kể project đang ở state nào
+- Request body validation dùng Jakarta Bean Validation (@Size, @NotBlank conditional)
+- Service layer: reuse existing `CustomerProjectService`, thêm method `patchProject(UUID projectId, UUID customerId, PatchProjectRequest request)`
+
+---
+
+### Story 9.2: FE Customer — Horizontal Milestone Stepper
+
+As a customer,
+I want to see my project's milestones displayed as a horizontal stepper with an expandable panel for the active step,
+So that I can quickly grasp overall progress and take review actions without leaving the page.
+
+**Acceptance Criteria:**
+
+**Given** Customer truy cập `/[locale]/projects/[id]`,
+**When** trang load xong và project có milestones,
+**Then** milestone list hiện tại (dạng rows) được thay thế bằng một horizontal stepper full-width.
+**And** mỗi step gồm: circle indicator + tên milestone bên dưới circle + status label bên dưới tên.
+**And** circle size: 48px cho DONE và PENDING; 56px cho ACTIVE (milestone đang active).
+**And** connector line giữa các circles: màu teal (`bg-primary`) cho đoạn đã DONE, màu border (`bg-border`) cho đoạn còn pending.
+
+**Given** milestone có `status = DONE`,
+**When** render stepper,
+**Then** circle hiển thị checkmark icon, nền `bg-primary`, chữ trắng, có `shadow-[0_4px_16px_rgba(13,148,136,.18)]`.
+
+**Given** milestone có `status = ACTIVE`,
+**When** render stepper,
+**Then** circle 56px, nền `bg-primary`, chữ trắng, shadow như DONE. Panel bên dưới stepper tự động expand cho step này khi trang load.
+
+**Given** milestone có `status = PENDING`,
+**When** render stepper,
+**Then** circle 48px, nền `bg-background`, border 2px `border-border`, chữ `text-muted-foreground`. Không có panel expand.
+
+**Given** milestone ACTIVE đang hiển thị panel expand,
+**When** Customer click vào circle của một step khác (nếu step đó cho phép expand),
+**Then** chỉ một panel được mở tại một thời điểm (accordion behavior) — panel cũ tự động collapse.
+
+**Given** milestone ACTIVE có `review_status = PENDING_REVIEW`,
+**When** panel expand được hiển thị,
+**Then** panel chứa: deliverable link (nếu có `deliverableUrl`, button "Xem kết quả" → `target="_blank"`), download button (nếu có `deliverableFileKey`, gọi Server Action lấy presigned URL), delivery note (nếu có `deliveryNote`), và hai action buttons: "Chấp nhận" + "Yêu cầu chỉnh sửa".
+**And** panel background: `bg-teal-50 border border-teal-100 rounded-lg`.
+**And** panel có arrow pseudo-element (triangle pointing up, teal-50 fill) nối với circle active.
+
+**Given** Customer click "Yêu cầu chỉnh sửa" trong panel,
+**When** button được click,
+**Then** expand một textarea bắt buộc (placeholder: "Mô tả yêu cầu chỉnh sửa chi tiết...") và nút "Gửi yêu cầu".
+**And** nút "Gửi yêu cầu" disabled cho đến khi textarea có nội dung.
+
+**Given** Customer submit review action (approve hoặc revision),
+**When** Server Action thành công,
+**Then** page revalidate, stepper cập nhật trạng thái mới, toast success hiển thị (reuse behaviors từ story 8.5).
+
+**Given** project chưa có milestone nào (edge case),
+**When** render trang,
+**Then** stepper section không render, thay bằng một empty state nhỏ: "Chưa có milestone nào."
+
+**Given** trang load trong lúc fetch dữ liệu,
+**When** skeleton loading,
+**Then** stepper area hiển thị skeleton placeholder (3 circles + connectors) với `aria-busy="true"`.
+
+**Technical Notes:**
+- Component mới: `src/components/customer/MilestoneStepper.tsx` (Server Component hoặc Client Component tùy state management cần thiết)
+- Tái sử dụng Server Actions từ Epic 8.5 cho approve/revision submit
+- Visual tokens từ `DESIGN.md` → `components.milestone-stepper`
+- Tất cả strings phải dùng `useTranslations` (next-intl), không hardcode
+- Locale-aware navigation: mọi `href` dùng locale prefix. Server Component dùng `getLocale()`, Client Component dùng `useParams()`
+- Route: `/[locale]/projects/[id]` — không hardcode path không có locale
+
+---
+
+### Story 9.3: FE Customer — Project Detail Header Enhancement
+
+As a customer,
+I want the project detail page header to show the revision counter alongside the status badge, a collapsible description with reference link, and an edit button,
+So that I can quickly understand project status and access key actions without scrolling.
+
+**Acceptance Criteria:**
+
+**Given** Customer truy cập `/[locale]/projects/[id]`,
+**When** trang load xong,
+**Then** revision counter chip hiển thị trong project header area, nằm cạnh status badge (không phải bên dưới stepper như trước).
+**And** chip chỉ hiển thị khi `project.status = AWAITING_REVIEW` hoặc `IN_REVISION`.
+**And** chip text: "Còn {n} lần chỉnh sửa". Khi `revisionCount ≤ 1`: chữ đổi sang `text-destructive`, text đổi thành "Còn 1 lần chỉnh sửa cuối".
+**And** chip ẩn hoàn toàn khi `status = DELIVERED` hoặc `CANCELLED`.
+
+**Given** project có description,
+**When** render Project Detail,
+**Then** description hiển thị dưới dạng `collapsible-description` component (component path: `src/components/ui/CollapsibleDescription.tsx`):
+- Mặc định collapsed: 3 dòng visible via `-webkit-line-clamp: 3`
+- Button toggle: text "Xem thêm" + arrow icon (chevron-down) khi collapsed; text "Thu gọn" + arrow icon (chevron-up, xoay 180°) khi expanded
+- Click toggle → expand full content; click lại → collapse
+- Toggle state không cần persist (reset mỗi lần load trang — session only)
+
+**Given** project có `reference` (non-null, non-empty string),
+**When** render Project Detail,
+**Then** reference field hiển thị bên dưới collapsible description, phân cách bằng một top border.
+**And** render như external link: icon `ExternalLink` (lucide) + text URL hoặc label ngắn gọn, `target="_blank"`, `rel="noopener noreferrer"`.
+**And** khi `reference` là null hoặc empty string, reference field không render (ẩn hoàn toàn).
+
+**Given** Customer đang xem trang `/[locale]/projects/[id]`,
+**When** render project header,
+**Then** button "Chỉnh sửa" hiển thị trong header area.
+**And** button chỉ visible cho Customer — nếu Admin navigate vào route customer này (không phải `/admin/...`), button không được render.
+**And** click button → navigate đến `/[locale]/projects/[id]/edit` (locale-aware, dùng locale-aware `Link` từ `@/i18n/navigation`).
+
+**Given** Customer dùng screen reader,
+**When** tương tác với collapsible description,
+**Then** toggle button có `aria-expanded={isExpanded}`, content container có `aria-hidden={!isExpanded}` khi collapsed.
+
+**Technical Notes:**
+- Component mới: `src/components/ui/CollapsibleDescription.tsx` (Client Component — cần state cho toggle)
+- Component này sẽ được reuse ở Story 9.5 (Admin Tab "Thông tin")
+- Revision counter chip: reuse/relocate existing chip component từ Story 3.3, không tạo component mới
+- Edit button visibility: kiểm tra role từ session/auth context — render null nếu user không phải customer
+- Tất cả text strings phải dùng `useTranslations` (next-intl), không hardcode
+- Locale-aware navigation: dùng `Link` từ `@/i18n/navigation` cho Edit button href
+
+---
+
+### Story 9.4: FE Customer — Edit Project Page
+
+As a customer,
+I want a dedicated page to edit my project's name, description, and reference link,
+So that I can update project information at any time after submission.
+
+**Acceptance Criteria:**
+
+**Given** Customer navigate đến `/[locale]/projects/[id]/edit`,
+**When** trang load,
+**Then** form hiển thị với 3 fields pre-populated từ dữ liệu project hiện tại:
+- `name`: text input, required, max 100 ký tự
+- `description`: textarea, required, min 50 ký tự, max 2000 ký tự
+- `reference`: text input, optional, max 500 ký tự (có thể để trống để xoá reference)
+
+**Given** Customer không điền `name` hoặc `description`,
+**When** submit form,
+**Then** hiển thị inline error cho từng field vi phạm. Submit button disabled cho đến khi form hợp lệ.
+
+**Given** Customer điền `description` dưới 50 ký tự,
+**When** đang nhập hoặc khi submit,
+**Then** hiển thị inline error: "Mô tả cần ít nhất 50 ký tự."
+
+**Given** form hợp lệ và Customer click submit,
+**When** Server Action `updateProjectAction` gọi `PATCH /api/v1/customer/projects/{id}` thành công,
+**Then** redirect về `/[locale]/projects/[id]` (locale-aware redirect, dùng `getLocale()` trong Server Action).
+**And** toast success hiển thị: "Đã cập nhật dự án."
+
+**Given** Server Action thất bại (lỗi network hoặc validation từ BE),
+**When** response trả về lỗi,
+**Then** toast destructive hiển thị: "Không thể cập nhật. Thử lại."
+**And** form giữ nguyên dữ liệu đã nhập (không clear).
+
+**Given** Customer truy cập `/[locale]/projects/[id]/edit` nhưng project không thuộc về họ,
+**When** Server Action hoặc page fetch project data,
+**Then** redirect về trang 404 hoặc `/[locale]/projects` với error toast.
+
+**Given** Customer là Admin (không phải customer role),
+**When** truy cập `/[locale]/projects/[id]/edit`,
+**Then** middleware hoặc page-level auth check redirect về `/[locale]/admin` hoặc trả về 403.
+
+**Given** Submit đang xử lý,
+**When** trong thời gian submit,
+**Then** submit button text đổi thành "Đang lưu…" và disabled (no spinner overlay).
+
+**Technical Notes:**
+- Route mới: `src/app/[locale]/(dashboard)/projects/[id]/edit/page.tsx`
+- Server Action mới: `updateProjectAction` gọi `PATCH /api/v1/customer/projects/{id}`
+- Locale-aware redirect trong Server Action: `import { getLocale } from 'next-intl/server'` → `const locale = await getLocale()` → `redirect(\`/${locale}/projects/${id}\`)`
+- Validation client-side mirror với BE validation từ Story 9.1
+- Tất cả strings phải dùng `useTranslations` (next-intl), không hardcode
+- `reference` field trống → gửi `null` hoặc `""` về BE để xoá reference
+- Story này depends on Story 9.1 (BE endpoint phải available trước)
+
+---
+
+### Story 9.5: FE Admin — Collapsible Description trong Tab "Thông tin"
+
+As an admin,
+I want the project description in the "Thông tin" tab to be collapsible with a reference link displayed below,
+So that the admin management page is visually consistent and long descriptions don't crowd the workspace.
+
+**Acceptance Criteria:**
+
+**Given** Admin truy cập `/[locale]/admin/projects/[id]` và chọn Tab "Thông tin",
+**When** tab render,
+**Then** description hiển thị dùng `CollapsibleDescription` component (component path: `src/components/ui/CollapsibleDescription.tsx` — từ Story 9.3, không tạo lại).
+**And** behavior giống hệt customer side: collapsed 3 dòng, toggle "Xem thêm"/"Thu gọn", arrow xoay 180°.
+
+**Given** project có `reference` (non-null, non-empty),
+**When** Tab "Thông tin" render,
+**Then** reference hiển thị bên dưới collapsible description như external link: icon `ExternalLink` + URL/label, `target="_blank"`, `rel="noopener noreferrer"`.
+**And** khi `reference` null hoặc empty, reference field không render.
+
+**Given** description rất dài (> 3 dòng),
+**When** Admin mở Tab "Thông tin",
+**Then** chỉ 3 dòng đầu visible, không chiếm hết viewport, Admin có thể ngay lập tức thấy và thao tác với các phần khác của tab.
+
+**Given** Admin dùng screen reader,
+**When** tương tác với collapsible description trong admin tab,
+**Then** toggle button có `aria-expanded={isExpanded}`, accessibility behavior giống customer side.
+
+**Technical Notes:**
+- Reuse `src/components/ui/CollapsibleDescription.tsx` từ Story 9.3 — không implement lại
+- Locale-aware navigation: mọi link trong admin tab dùng locale prefix
+- Admin routes: `/[locale]/admin/projects/[id]` — kiểm tra `[locale]` segment có đúng không
+- Tất cả strings phải dùng `useTranslations` (next-intl)
+- Story này depends on Story 9.3 (`CollapsibleDescription` component phải đã exist)
+
+---
+

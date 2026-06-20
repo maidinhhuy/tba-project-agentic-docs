@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Project Detail — UX Options</title>
+<style>
+  :root {
+    --teal:        #0D9488;
+    --teal-mid:    #14B8A6;
+    --teal-faint:  #F0FDFA;
+    --teal-ring:   #CCFBF1;
+    --ground:      #F8FAFC;
+    --surface:     #FFFFFF;
+    --surface-2:   #F1F5F9;
+    --text:        #0F172A;
+    --text-mid:    #334155;
+    --text-muted:  #64748B;
+    --border:      #E2E8F0;
+    --border-mid:  #CBD5E1;
+    --radius:      10px;
+    --radius-sm:   6px;
+    --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow:      0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.04);
+    --shadow-teal: 0 4px 16px rgba(13,148,136,.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--ground);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 0 0 80px;
+  }
+
+  /* ─── Option Label Banner ─────────────────────────────────── */
+  .option-banner {
+    background: var(--text);
+    color: #fff;
+    padding: 10px 32px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .option-banner .tag {
+    background: var(--teal);
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+  .option-banner .desc { color: #94A3B8; font-weight: 400; letter-spacing: 0; }
+
+  .page-wrapper {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 24px 0;
+  }
+
+  /* ─── Card ───────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .card-body { padding: 20px 22px; }
+
+  /* ─── Project Header ─────────────────────────────────────── */
+  .project-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px;
+  }
+  .project-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -.01em;
+  }
+  .header-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 99px;
+  }
+  .status-badge .dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-awaiting {
+    background: #FEF9C3;
+    color: #854D0E;
+  }
+  .status-awaiting .dot { background: #CA8A04; }
+  .status-dev {
+    background: var(--teal-faint);
+    color: #0F766E;
+  }
+  .status-dev .dot { background: var(--teal); }
+
+  .product-tag {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: none; cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, box-shadow .15s;
+    line-height: 1;
+  }
+  .btn-ghost {
+    background: var(--surface-2);
+    color: var(--text-mid);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--border); }
+  .btn-primary {
+    background: var(--teal);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(13,148,136,.3);
+  }
+
+  .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* ─── Section Label ──────────────────────────────────────── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* ─── Revision Counter ───────────────────────────────────── */
+  .revision-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400E;
+    background: #FEF3C7;
+    border: 1px solid #FDE68A;
+    padding: 4px 10px;
+    border-radius: 99px;
+  }
+  .revision-chip svg { width: 12px; height: 12px; }
+
+  /* ─── Description Collapsible ────────────────────────────── */
+  .description-text {
+    font-size: 13.5px;
+    color: var(--text-mid);
+    line-height: 1.65;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+  }
+  .description-text.expanded {
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+  .desc-toggle {
+    margin-top: 8px;
+    background: none;
+    border: none;
+    color: var(--teal);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .desc-toggle svg { width: 12px; height: 12px; transition: transform .2s; }
+  .desc-toggle.open svg { transform: rotate(180deg); }
+  .ref-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--teal);
+    text-decoration: none;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    width: 100%;
+  }
+  .ref-link svg { width: 12px; height: 12px; }
+
+  /* ─── Divider ────────────────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+
+  /* ─── Activity Feed ──────────────────────────────────────── */
+  .activity-entry {
+    display: flex; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .activity-entry:last-child { border-bottom: none; }
+  .activity-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 2px; }
+  .activity-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--teal-ring);
+    border: 2px solid var(--teal);
+    flex-shrink: 0;
+  }
+  .activity-note { font-size: 13px; color: var(--text-mid); }
+  .activity-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ════════════════════════════════════════════════════════════
+     OPTION A — Horizontal Stepper (Full-width, Prominent)
+  ════════════════════════════════════════════════════════════ */
+
+  .stepper-h {
+    padding: 24px 22px 0;
+    position: relative;
+  }
+
+  /* connector line */
+  .stepper-h-track {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 0;
+  }
+  .stepper-h-track::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 48px;
+    right: 48px;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+  .stepper-h-track::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 48px;
+    width: calc(50% - 24px);
+    height: 2px;
+    background: var(--teal);
+    z-index: 1;
+  }
+
+  .step-h {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+  }
+
+  .step-h-circle {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700;
+    transition: all .2s;
+    position: relative;
+    z-index: 2;
+  }
+  .step-h-circle.done {
+    background: var(--teal);
+    color: #fff;
+    box-shadow: var(--shadow-teal);
+  }
+  .step-h-circle.active {
+    background: var(--teal);
+    color: #fff;
+    box-shadow: var(--shadow-teal);
+    width: 56px; height: 56px;
+    font-size: 16px;
+    margin-top: -4px;
+  }
+  .step-h-circle.pending {
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 2px solid var(--border-mid);
+  }
+
+  .step-h-label {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 100px;
+    line-height: 1.35;
+  }
+  .step-h.is-active .step-h-label {
+    color: var(--text);
+    font-size: 13px;
+  }
+  .step-h.is-done .step-h-label {
+    color: var(--teal);
+  }
+
+  .step-h-status {
+    margin-top: 5px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .step-h.is-active .step-h-status { color: var(--teal); }
+  .step-h.is-done .step-h-status { color: var(--teal-mid); }
+  .step-h.is-pending .step-h-status { color: var(--text-muted); }
+
+  /* Active milestone detail card */
+  .step-h-expand {
+    margin: 16px 0 22px;
+    background: var(--teal-faint);
+    border: 1.5px solid var(--teal-ring);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    position: relative;
+  }
+  .step-h-expand::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px; height: 14px;
+    background: var(--teal-faint);
+    border-top: 1.5px solid var(--teal-ring);
+    border-left: 1.5px solid var(--teal-ring);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .expand-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0F766E;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .expand-title svg { width: 13px; height: 13px; }
+  .expand-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    color: var(--text-mid);
+  }
+  .expand-row .lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-width: 56px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .expand-link {
+    color: var(--teal);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 12.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .expand-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+    border-top: 1px solid var(--teal-ring);
+    padding-top: 10px;
+  }
+  .btn-approve {
+    flex: 1;
+    background: var(--teal);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .btn-revision {
+    flex: 1;
+    background: #fff;
+    color: var(--text-mid);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-mid);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     OPTION B — Milestone Cards (3 cards, active elevated)
+  ════════════════════════════════════════════════════════════ */
+
+  .milestone-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 20px 22px;
+  }
+
+  .ms-card {
+    border-radius: var(--radius);
+    padding: 14px 14px 12px;
+    position: relative;
+    border: 1.5px solid var(--border);
+    background: var(--surface-2);
+    transition: all .2s;
+  }
+  .ms-card.done {
+    background: var(--surface);
+    border-color: var(--border);
+    opacity: .8;
+  }
+  .ms-card.active {
+    background: var(--surface);
+    border-color: var(--teal);
+    box-shadow: var(--shadow-teal);
+  }
+  .ms-card.pending {
+    opacity: .6;
+  }
+
+  .ms-pos {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .ms-card.done .ms-pos { color: var(--teal); }
+  .ms-card.active .ms-pos { color: var(--teal); }
+  .ms-card.pending .ms-pos { color: var(--text-muted); }
+
+  .ms-name {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .ms-card.pending .ms-name { color: var(--text-muted); }
+
+  .ms-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 99px;
+  }
+  .ms-status-pill .dot2 {
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .pill-done { background: #DCFCE7; color: #166534; }
+  .pill-done .dot2 { background: #16A34A; }
+  .pill-review { background: #FEF9C3; color: #854D0E; }
+  .pill-review .dot2 { background: #CA8A04; }
+  .pill-pending { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+  .pill-pending .dot2 { background: var(--border-mid); }
+
+  .ms-card-link {
+    display: block;
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--teal);
+    font-weight: 500;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ms-card-link svg { width: 11px; height: 11px; }
+
+  .ms-active-action {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    border-top: 1px solid var(--teal-ring);
+    padding-top: 10px;
+  }
+  .btn-mini-approve {
+    flex: 1;
+    background: var(--teal);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: none; cursor: pointer;
+    text-align: center;
+  }
+  .btn-mini-revision {
+    flex: 1;
+    background: var(--surface-2);
+    color: var(--text-mid);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border-mid); cursor: pointer;
+    text-align: center;
+  }
+
+  .ms-connector-row {
+    display: flex;
+    align-items: center;
+    padding: 0 22px 6px;
+    gap: 0;
+  }
+  .ms-connector-segment {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    position: relative;
+  }
+  .ms-connector-segment.filled { background: var(--teal); }
+  .ms-connector-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .ms-connector-dot.filled { background: var(--teal); }
+  .ms-connector-dot.active {
+    background: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-ring);
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     OPTION A — Horizontal Stepper (nổi bật, full-width)
+════════════════════════════════════════════════════════ -->
+<div class="option-banner">
+  <span class="tag">OPTION A</span>
+  Horizontal stepper — milestone active mở rộng hiển thị nội dung + action ngay tại chỗ
+  <span class="desc">— phù hợp khi milestone là "trung tâm" của trang</span>
+</div>
+
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <div class="card">
+    <div class="project-header">
+      <div>
+        <h1>FinTrack MVP</h1>
+        <div class="header-meta">
+          <span class="status-badge status-awaiting">
+            <span class="dot"></span>Chờ review
+          </span>
+          <span class="product-tag">Web App</span>
+          <span class="revision-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+            Còn 2 lần chỉnh sửa
+          </span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
+          Chỉnh sửa
+        </button>
+      </div>
+    </div>
+
+    <!-- Stepper A -->
+    <div class="stepper-h">
+      <div class="section-label">Tiến độ milestone</div>
+      <div class="stepper-h-track">
+
+        <!-- Step 1: Done -->
+        <div class="step-h is-done">
+          <div class="step-h-circle done">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="step-h-label">UI/UX &amp; Prototype</div>
+          <div class="step-h-status">Đã chấp nhận</div>
+        </div>
+
+        <!-- Step 2: Active -->
+        <div class="step-h is-active">
+          <div class="step-h-circle active">2</div>
+          <div class="step-h-label">Backend Development</div>
+          <div class="step-h-status">Đang chờ review</div>
+        </div>
+
+        <!-- Step 3: Pending -->
+        <div class="step-h is-pending">
+          <div class="step-h-circle pending">3</div>
+          <div class="step-h-label">Frontend Integration &amp; Deploy</div>
+          <div class="step-h-status">Chưa bắt đầu</div>
+        </div>
+
+      </div>
+
+      <!-- Expanded detail for active step -->
+      <div class="step-h-expand">
+        <div class="expand-title">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 5h14M1 11h14M5 1l-4 4 4 4M11 1l4 4-4 4"/></svg>
+          Kết quả từ team
+        </div>
+        <div class="expand-row">
+          <span class="lbl">Link</span>
+          <a class="expand-link" href="#">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2h4v4M6 10l8-8M7 4H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9"/></svg>
+            staging.fintrack.app
+          </a>
+        </div>
+        <div class="expand-row">
+          <span class="lbl">Ghi chú</span>
+          <span>Đã hoàn thiện auth và expense API. Vui lòng test thử.</span>
+        </div>
+        <div class="expand-actions">
+          <button class="btn-approve">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="14 4 6 12 2 8"/></svg>
+            Chấp nhận
+          </button>
+          <button class="btn-revision">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a5 5 0 1010 0 5 5 0 00-10 0M3 8l-2 2M3 8l2 2"/></svg>
+            Yêu cầu chỉnh sửa
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description Card -->
+  <div class="card">
+    <div class="card-body">
+      <div class="section-label">Mô tả dự án</div>
+      <div class="description-text" id="descA">
+        App tracking chi tiêu cá nhân với AI tự động phân loại giao dịch. Người dùng chụp ảnh hoá đơn hoặc nhập tay, AI nhận diện danh mục (ăn uống, đi lại, mua sắm…) và tạo báo cáo tháng. Mục tiêu MVP: 3 tháng ra sản phẩm, target startup fintech trình bày pitch round A vào Q3.
+      </div>
+      <button class="desc-toggle" id="toggleA" onclick="toggleDesc('A')">
+        Xem thêm
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 6 8 10 12 6"/></svg>
+      </button>
+      <a class="ref-link" href="#">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2h4v4M6 10l8-8M7 4H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9"/></svg>
+        Tài liệu tham khảo — figma.com/fintrack-reference
+      </a>
+    </div>
+  </div>
+
+  <!-- Activity -->
+  <div class="card">
+    <div class="card-body">
+      <div class="section-label">Nhật ký cập nhật</div>
+      <div class="activity-entry">
+        <div class="activity-dot-col"><div class="activity-dot"></div></div>
+        <div>
+          <div class="activity-note">Hoàn thiện auth module và expense tracking API. Deploy staging tại staging.fintrack.app — vui lòng review.</div>
+          <div class="activity-time">2 ngày trước · Huy (TBA)</div>
+        </div>
+      </div>
+      <div class="activity-entry">
+        <div class="activity-dot-col"><div class="activity-dot"></div></div>
+        <div>
+          <div class="activity-note">Đang build Backend Development — dự kiến xong cuối tuần.</div>
+          <div class="activity-time">5 ngày trước · Huy (TBA)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     OPTION B — Milestone Cards (3 cards, active elevated)
+════════════════════════════════════════════════════════ -->
+<div class="option-banner" style="margin-top: 40px;">
+  <span class="tag">OPTION B</span>
+  Milestone cards — 3 thẻ ngang, active card nổi bật và đứng cao hơn
+  <span class="desc">— milestone như các "giai đoạn", dễ scan tổng quan</span>
+</div>
+
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <div class="card">
+    <div class="project-header">
+      <div>
+        <h1>FinTrack MVP</h1>
+        <div class="header-meta">
+          <span class="status-badge status-awaiting">
+            <span class="dot"></span>Chờ review
+          </span>
+          <span class="product-tag">Web App</span>
+          <span class="revision-chip">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+            Còn 2 lần chỉnh sửa
+          </span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
+          Chỉnh sửa
+        </button>
+      </div>
+    </div>
+
+    <!-- Connector row -->
+    <div class="ms-connector-row">
+      <div class="ms-connector-dot filled"></div>
+      <div class="ms-connector-segment filled"></div>
+      <div class="ms-connector-dot active"></div>
+      <div class="ms-connector-segment"></div>
+      <div class="ms-connector-dot"></div>
+    </div>
+
+    <!-- Cards -->
+    <div class="milestone-cards">
+
+      <!-- Card 1: Done -->
+      <div class="ms-card done">
+        <div class="ms-pos">Milestone 1</div>
+        <div class="ms-name">UI/UX &amp; Prototype</div>
+        <span class="ms-status-pill pill-done">
+          <span class="dot2"></span>Đã chấp nhận
+        </span>
+      </div>
+
+      <!-- Card 2: Active -->
+      <div class="ms-card active">
+        <div class="ms-pos">Milestone 2 · Hiện tại</div>
+        <div class="ms-name">Backend Development</div>
+        <span class="ms-status-pill pill-review">
+          <span class="dot2"></span>Đang chờ review
+        </span>
+        <a class="ms-card-link" href="#">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2h4v4M6 10l8-8M7 4H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9"/></svg>
+          staging.fintrack.app
+        </a>
+        <div class="ms-active-action">
+          <button class="btn-mini-approve">Chấp nhận</button>
+          <button class="btn-mini-revision">Chỉnh sửa</button>
+        </div>
+      </div>
+
+      <!-- Card 3: Pending -->
+      <div class="ms-card pending">
+        <div class="ms-pos">Milestone 3</div>
+        <div class="ms-name">Frontend Integration &amp; Deploy</div>
+        <span class="ms-status-pill pill-pending">
+          <span class="dot2"></span>Chưa bắt đầu
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Description Card -->
+  <div class="card">
+    <div class="card-body">
+      <div class="section-label">Mô tả dự án</div>
+      <div class="description-text" id="descB">
+        App tracking chi tiêu cá nhân với AI tự động phân loại giao dịch. Người dùng chụp ảnh hoá đơn hoặc nhập tay, AI nhận diện danh mục (ăn uống, đi lại, mua sắm…) và tạo báo cáo tháng. Mục tiêu MVP: 3 tháng ra sản phẩm, target startup fintech trình bày pitch round A vào Q3.
+      </div>
+      <button class="desc-toggle" id="toggleB" onclick="toggleDesc('B')">
+        Xem thêm
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 6 8 10 12 6"/></svg>
+      </button>
+      <a class="ref-link" href="#">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2h4v4M6 10l8-8M7 4H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9"/></svg>
+        Tài liệu tham khảo — figma.com/fintrack-reference
+      </a>
+    </div>
+  </div>
+
+  <!-- Activity -->
+  <div class="card">
+    <div class="card-body">
+      <div class="section-label">Nhật ký cập nhật</div>
+      <div class="activity-entry">
+        <div class="activity-dot-col"><div class="activity-dot"></div></div>
+        <div>
+          <div class="activity-note">Hoàn thiện auth module và expense tracking API. Deploy staging tại staging.fintrack.app — vui lòng review.</div>
+          <div class="activity-time">2 ngày trước · Huy (TBA)</div>
+        </div>
+      </div>
+      <div class="activity-entry">
+        <div class="activity-dot-col"><div class="activity-dot"></div></div>
+        <div>
+          <div class="activity-note">Đang build Backend Development — dự kiến xong cuối tuần.</div>
+          <div class="activity-time">5 ngày trước · Huy (TBA)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleDesc(key) {
+  const el = document.getElementById('desc' + key);
+  const btn = document.getElementById('toggle' + key);
+  const isOpen = el.classList.contains('expanded');
+  el.classList.toggle('expanded', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.childNodes[0].textContent = isOpen ? 'Xem thêm' : 'Thu gọn';
+}
+</script>
+
+</body>
+</html>

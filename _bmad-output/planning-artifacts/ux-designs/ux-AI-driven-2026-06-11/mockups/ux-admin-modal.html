@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin: Giao Milestone — Modal</title>
+<style>
+  :root {
+    --teal:       #0D9488;
+    --teal-mid:   #14B8A6;
+    --teal-faint: #F0FDFA;
+    --teal-ring:  #CCFBF1;
+    --ground:     #F8FAFC;
+    --surface:    #FFFFFF;
+    --surface-2:  #F1F5F9;
+    --text:       #0F172A;
+    --text-mid:   #334155;
+    --text-muted: #64748B;
+    --border:     #E2E8F0;
+    --border-mid: #CBD5E1;
+    --radius:     10px;
+    --radius-sm:  6px;
+    --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow:     0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.04);
+    --shadow-teal:0 4px 16px rgba(13,148,136,.18);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--ground);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ─── Section banners ─────────────────────────────── */
+  .section-banner {
+    background: var(--text);
+    color: #fff;
+    padding: 9px 28px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-banner .tag {
+    background: var(--teal);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+  .section-banner .desc {
+    color: #94A3B8; font-weight: 400; letter-spacing: 0;
+  }
+
+  /* ─── Admin page chrome ───────────────────────────── */
+  .admin-chrome {
+    max-width: 900px; margin: 0 auto; padding: 24px 28px;
+    opacity: .35;
+    pointer-events: none;
+    user-select: none;
+  }
+  .admin-chrome-label {
+    font-size: 11px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+  }
+  .chrome-tabs {
+    display: flex; gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .chrome-tab {
+    padding: 9px 18px; font-size: 13px; font-weight: 500;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .chrome-tab.active {
+    color: var(--teal); border-bottom-color: var(--teal); font-weight: 600;
+  }
+  .ms-row {
+    display: flex; align-items: center;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1.5px solid var(--teal);
+    border-radius: var(--radius);
+    gap: 12px; margin-bottom: 8px;
+    box-shadow: var(--shadow-teal);
+  }
+  .ms-row-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--teal); color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .ms-row-name { flex: 1; font-size: 13.5px; font-weight: 600; }
+  .ms-row-pill {
+    font-size: 11px; font-weight: 600; color: #0F766E;
+    background: var(--teal-faint); border: 1px solid var(--teal-ring);
+    padding: 3px 9px; border-radius: 99px;
+  }
+  .ms-row-btn {
+    background: var(--teal); color: #fff;
+    font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .ms-row-btn svg { width: 13px; height: 13px; }
+  .ms-row-other {
+    display: flex; align-items: center; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); gap: 12px; margin-bottom: 8px; opacity: .5;
+  }
+  .ms-row-other-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface-2); color: var(--text-muted);
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    border: 1.5px solid var(--border);
+  }
+  .ms-row-other-name { flex: 1; font-size: 13.5px; font-weight: 500; color: var(--text-muted); }
+
+  /* ─── Modal overlay ───────────────────────────────── */
+  .modal-scene {
+    position: relative;
+    max-width: 900px; margin: 0 auto;
+    padding: 0 28px 60px;
+  }
+  .modal-scrim {
+    position: absolute; inset: 0;
+    background: rgba(15,23,42,.45);
+    backdrop-filter: blur(2px);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+
+  /* ─── Modal box ───────────────────────────────────── */
+  .modal {
+    background: var(--surface);
+    border-radius: 14px;
+    width: 100%; max-width: 500px;
+    box-shadow: 0 24px 48px rgba(0,0,0,.18), 0 8px 16px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+
+  /* Header */
+  .modal-header {
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  }
+  .modal-eyebrow {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--teal); margin-bottom: 2px;
+  }
+  .modal-title {
+    font-size: 16px; font-weight: 700; color: var(--text);
+    letter-spacing: -.01em; line-height: 1.3;
+  }
+  .modal-close {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  }
+  .modal-close svg { width: 13px; height: 13px; color: var(--text-muted); }
+
+  /* Body */
+  .modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 0; }
+
+  /* Deliverable section: URL + OR + File in one visual group */
+  .deliverable-group {
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .deliverable-group-label {
+    padding: 9px 14px 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .deliverable-group-label .req-note {
+    font-size: 10px; font-weight: 500; letter-spacing: 0;
+    text-transform: none; color: var(--text-muted);
+    background: var(--border);
+    padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* URL row */
+  .url-row {
+    padding: 0 14px 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .url-icon {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .url-icon svg { width: 14px; height: 14px; color: var(--teal); }
+  .url-input-wrap { flex: 1; position: relative; }
+  .url-input {
+    width: 100%; padding: 8px 12px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px; color: var(--text);
+    outline: none; font-family: inherit;
+    transition: border-color .15s;
+  }
+  .url-input::placeholder { color: var(--text-muted); }
+  .url-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-ring); }
+
+  /* OR separator */
+  .or-sep {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px;
+  }
+  .or-sep-line { flex: 1; height: 1px; background: var(--border); }
+  .or-sep-text {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--border-mid);
+  }
+
+  /* File drop zone */
+  .file-zone {
+    margin: 0 14px 14px;
+    border: 1.5px dashed var(--border-mid);
+    border-radius: var(--radius-sm);
+    padding: 20px 16px;
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    text-align: center;
+  }
+  .file-zone:hover { border-color: var(--teal); background: var(--teal-faint); }
+  .file-zone-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 2px;
+  }
+  .file-zone-icon svg { width: 16px; height: 16px; color: var(--text-muted); }
+  .file-zone-main { font-size: 12.5px; font-weight: 600; color: var(--text-mid); }
+  .file-zone-sub { font-size: 11px; color: var(--text-muted); }
+  .file-zone-limit {
+    font-size: 10.5px; color: var(--text-muted);
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 2px 7px; border-radius: 4px; margin-top: 2px;
+  }
+
+  /* Note field */
+  .field-group { margin-bottom: 16px; }
+  .field-label {
+    font-size: 12px; font-weight: 600; color: var(--text-mid);
+    margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+  }
+  .field-optional {
+    font-size: 10.5px; font-weight: 400; color: var(--text-muted);
+  }
+  .field-textarea {
+    width: 100%; padding: 10px 12px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px; color: var(--text);
+    font-family: inherit; resize: vertical; min-height: 80px; outline: none;
+    line-height: 1.55; transition: border-color .15s;
+  }
+  .field-textarea::placeholder { color: var(--text-muted); }
+  .field-textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-ring); }
+  .field-hint { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+
+  /* Footer */
+  .modal-footer {
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .footer-note {
+    font-size: 11px; color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .footer-note svg { width: 11px; height: 11px; flex-shrink: 0; }
+  .footer-actions { display: flex; gap: 8px; }
+  .btn-cancel {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    background: var(--surface-2); color: var(--text-mid);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .btn-deliver {
+    padding: 9px 20px; font-size: 13px; font-weight: 600;
+    background: var(--teal); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    box-shadow: 0 1px 3px rgba(13,148,136,.3);
+  }
+  .btn-deliver svg { width: 13px; height: 13px; }
+
+  /* ─── Context note below ─────────────────────────── */
+  .context-note {
+    max-width: 900px; margin: 24px auto 0; padding: 0 28px;
+  }
+  .context-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .context-card h3 {
+    font-size: 12px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .rule-row {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px;
+  }
+  .rule-icon {
+    width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px;
+  }
+  .rule-icon.green { background: #DCFCE7; }
+  .rule-icon.green svg { color: #16A34A; }
+  .rule-icon.red { background: #FEE2E2; }
+  .rule-icon.red svg { color: #DC2626; }
+  .rule-icon svg { width: 10px; height: 10px; }
+  .rule-text { font-size: 12px; color: var(--text-mid); line-height: 1.4; }
+  .rule-text strong { font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="section-banner">
+  <span class="tag">ADMIN</span>
+  Tab 2 — Management: nút "Giao milestone" + modal layout
+  <span class="desc">— active milestone highlighted, modal open</span>
+</div>
+
+<!-- Admin page in background (dimmed) -->
+<div class="modal-scene">
+  <div class="admin-chrome">
+    <div class="admin-chrome-label">Admin Project Management — FinTrack MVP</div>
+    <div class="chrome-tabs">
+      <div class="chrome-tab">Thông tin</div>
+      <div class="chrome-tab active">Quản lý</div>
+    </div>
+    <!-- Active milestone row -->
+    <div class="ms-row">
+      <div class="ms-row-num">2</div>
+      <div class="ms-row-name">Backend Development</div>
+      <span class="ms-row-pill">ACTIVE · Đang phát triển</span>
+      <button class="ms-row-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h9M8 5l3 3-3 3"/></svg>
+        Giao milestone
+      </button>
+    </div>
+    <!-- Other milestones (no button) -->
+    <div class="ms-row-other">
+      <div class="ms-row-other-num">✓</div>
+      <div class="ms-row-other-name">UI/UX &amp; Prototype</div>
+    </div>
+    <div class="ms-row-other">
+      <div class="ms-row-other-num">3</div>
+      <div class="ms-row-other-name">Frontend Integration &amp; Deploy</div>
+    </div>
+  </div>
+
+  <!-- Modal overlay -->
+  <div class="modal-scrim">
+    <div class="modal">
+
+      <!-- Header -->
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow">Giao milestone</div>
+          <div class="modal-title">Backend Development</div>
+        </div>
+        <div class="modal-close">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4L4 12M4 4l8 8"/></svg>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+
+        <!-- Deliverable group: URL + OR + File -->
+        <div class="deliverable-group">
+          <div class="deliverable-group-label">
+            Kết quả bàn giao
+            <span class="req-note">Bắt buộc có ít nhất 1</span>
+          </div>
+
+          <!-- URL -->
+          <div class="url-row">
+            <div class="url-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2h4v4M6 10l8-8M7 4H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9"/></svg>
+            </div>
+            <div class="url-input-wrap">
+              <input class="url-input" type="url" placeholder="https://staging.fintrack.app" value="" />
+            </div>
+          </div>
+
+          <!-- OR -->
+          <div class="or-sep">
+            <div class="or-sep-line"></div>
+            <span class="or-sep-text">Hoặc</span>
+            <div class="or-sep-line"></div>
+          </div>
+
+          <!-- File drop -->
+          <div class="file-zone">
+            <div class="file-zone-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12V4a1 1 0 011-1h5l3 3v6a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 3v3h3M8 7v4M6 9l2-2 2 2"/></svg>
+            </div>
+            <div class="file-zone-main">Kéo file vào đây hoặc <span style="color: var(--teal); text-decoration: underline; cursor: pointer;">chọn file</span></div>
+            <div class="file-zone-sub">PDF, ZIP, Figma export, video…</div>
+            <div class="file-zone-limit">Tối đa 50 MB</div>
+          </div>
+        </div>
+
+        <!-- Note -->
+        <div class="field-group">
+          <div class="field-label">
+            Ghi chú cho khách hàng
+            <span class="field-optional">— Không bắt buộc</span>
+          </div>
+          <textarea class="field-textarea" placeholder="Mô tả ngắn về kết quả bàn giao, điểm cần chú ý khi review…"></textarea>
+          <div class="field-hint">Nội dung này sẽ hiển thị trực tiếp cho khách hàng.</div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="footer-note">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM8 11V8M8 5h.01"/></svg>
+          Khách hàng sẽ nhận email thông báo ngay.
+        </div>
+        <div class="footer-actions">
+          <button class="btn-cancel">Huỷ</button>
+          <button class="btn-deliver">
+            Giao ngay
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 8h9M8 5l3 3-3 3"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Context note -->
+<div class="context-note">
+  <div class="context-card">
+    <div>
+      <h3>Khi nào hiện nút "Giao milestone"?</h3>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text">Project status = <strong>IN_DEVELOPMENT</strong></div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text">Milestone status = <strong>ACTIVE</strong></div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text">Milestone review_status = <strong>PENDING_DELIVERY</strong></div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon red">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 3L3 9M3 3l6 6"/></svg>
+        </div>
+        <div class="rule-text">Milestone đã deliver hoặc đang chờ review → <strong>ẩn button</strong></div>
+      </div>
+    </div>
+    <div>
+      <h3>Trạng thái milestone trên row</h3>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text"><strong>PENDING_DELIVERY</strong> → hiện nút "Giao milestone" (teal)</div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text"><strong>PENDING_REVIEW</strong> → badge "Đang chờ review" (yellow)</div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text"><strong>APPROVED</strong> → badge "Đã chấp nhận" (green)</div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-icon green">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="10 3 5 9 2 6"/></svg>
+        </div>
+        <div class="rule-text"><strong>REVISION_REQUESTED</strong> → badge "Cần chỉnh sửa" (orange)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

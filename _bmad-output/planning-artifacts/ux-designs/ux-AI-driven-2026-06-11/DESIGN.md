@@ -5,7 +5,7 @@ status: final
 sources:
   - _bmad-output/planning-artifacts/briefs/brief-AI-driven-2026-06-11/brief.md
 created: 2026-06-11
-updated: 2026-06-11
+updated: 2026-06-20
 colors:
   primary: '#0D9488'
   primary-foreground: '#FFFFFF'
@@ -55,6 +55,25 @@ components:
     defaultColor: 'text-muted-foreground'
     warningColor: 'text-destructive'
     # Warning threshold: ≤ 1 revision remaining
+    # Placement: project header area alongside status-badge (not below milestone list)
+  milestone-stepper:
+    circleSize-default: '48px'
+    circleSize-active: '56px'
+    circleDone: 'bg-primary text-white shadow-[0_4px_16px_rgba(13,148,136,.18)]'
+    circleActive: 'bg-primary text-white shadow-[0_4px_16px_rgba(13,148,136,.18)]'
+    circlePending: 'bg-background border-2 border-border text-muted-foreground'
+    connectorHeight: '2px'
+    connectorDone: 'bg-primary'
+    connectorPending: 'bg-border'
+    expandPanel: 'bg-teal-50 border border-teal-100 rounded-lg'
+    # expand-panel arrow: pseudo-element triangle pointing up, teal-50 fill
+  delivery-modal:
+    width: 'max-w-[500px]'
+    radius: 'rounded-[14px]'
+    deliverableGroup: 'bg-muted border border-border rounded-lg overflow-hidden'
+    orDivider: 'text-muted-foreground text-xs font-bold tracking-wide uppercase'
+    fileZone: 'border-dashed border-2 border-border rounded-md hover:border-primary hover:bg-teal-50 transition-colors'
+    # File zone: dashed border, centered icon + copy, limit badge
 ---
 
 ## Brand & Style
@@ -126,7 +145,11 @@ Brand-layer components:
 
 - **`status-badge`** — Always renders three elements: a filled circle icon (4px, same color as badge text), the state label, and the background pill. Never render color alone — always include the text label for accessibility. Color pair driven by semantic token map above.
 
-- **`revision-counter`** — Inline chip on Project Detail surface only. Format: `"X revisions remaining"`. Color is `text-muted-foreground` by default; switches to `text-destructive` when X ≤ 1. Never shown on the project list card.
+- **`revision-counter`** — Inline chip in the Project Detail **header** alongside the status badge (not below the milestone stepper). Format: `"Còn X lần chỉnh sửa"`. Color is `text-muted-foreground` by default; switches to `text-destructive` and text becomes `"Còn 1 lần chỉnh sửa cuối"` when X ≤ 1. Never shown on the project list card.
+
+- **`milestone-stepper`** — Full-width horizontal stepper on Customer Project Detail, inside the project header card. Three steps connected by a horizontal line. Done circles: 48px teal filled + checkmark icon, teal shadow. Active circle: 56px teal filled, `margin-top: -4px` to break out of the line slightly. Pending circles: 48px, white bg, 2px border, muted text. Connector line: 2px; fills teal for completed segments, `border` color for pending. When a step is active: an expand panel (`{components.milestone-stepper.expandPanel}`) renders below the full stepper row, pointing up via a pseudo-element triangle. Panel contains deliverable link, delivery note, and "Chấp nhận" / "Yêu cầu chỉnh sửa" action buttons.
+
+- **`delivery-modal`** — shadcn `Dialog`, `{components.delivery-modal.width}`, `{components.delivery-modal.radius}`. Header: small teal eyebrow label + milestone name as `text-lg font-bold` title + close icon. Body: **Deliverable group** (`{components.delivery-modal.deliverableGroup}`) — URL input row (icon prefix + full-width input) stacked above file dropzone (`{components.delivery-modal.fileZone}`), separated by an "Hoặc" (`{components.delivery-modal.orDivider}`) divider; group header label includes a muted "Bắt buộc có ít nhất 1" tag. Below the group: optional `Textarea` for delivery note with `text-xs text-muted-foreground` hint. Footer: left-aligned informational note (info icon + text) + right-aligned Cancel + "Giao ngay →" primary button.
 
 ## Do's and Don'ts
 
